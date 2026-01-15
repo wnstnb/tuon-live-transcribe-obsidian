@@ -10,6 +10,7 @@ export interface LiveTranscribeServiceOptions {
 	getAssemblyAiApiKey: () => string;
 	onStatusText?: (text: string) => void;
 	onRunningChange?: (running: boolean) => void;
+	onAudioFrame?: (data: Uint8Array) => void;
 }
 
 export class LiveTranscribeService {
@@ -17,6 +18,7 @@ export class LiveTranscribeService {
 	private readonly getAssemblyAiApiKey: () => string;
 	private readonly onStatusText?: (text: string) => void;
 	private readonly onRunningChange?: (running: boolean) => void;
+	private readonly onAudioFrame?: (data: Uint8Array) => void;
 
 	private mic: MicCaptureHandle | null = null;
 	private aai: AssemblyAiRealtimeClient | null = null;
@@ -31,6 +33,7 @@ export class LiveTranscribeService {
 		this.getAssemblyAiApiKey = opts.getAssemblyAiApiKey;
 		this.onStatusText = opts.onStatusText;
 		this.onRunningChange = opts.onRunningChange;
+		this.onAudioFrame = opts.onAudioFrame;
 	}
 
 	get isRunning() {
@@ -75,6 +78,9 @@ export class LiveTranscribeService {
 				onPcm16Chunk: (chunk) => {
 					this.aai?.sendPcm16Chunk(chunk);
 				},
+				onAudioFrame: (data) => {
+					this.onAudioFrame?.(data);
+				},
 			});
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
@@ -111,7 +117,7 @@ export class LiveTranscribeService {
 				this.current = ev.text;
 			}
 			const preview = (this.finalized + this.current).trim();
-			this.onStatusText?.(preview ? preview.slice(-80) : "Listening…");
+			this.onStatusText?.(preview || "Listening…");
 		} else if (ev.type === "error") {
 			this.onStatusText?.("Transcription error.");
 			new Notice(`Transcription error: ${ev.message}`);

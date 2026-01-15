@@ -3,6 +3,8 @@ export interface MicCaptureOptions {
 	onPcm16Chunk: (pcm16: ArrayBuffer) => void;
 	/** Size in samples to batch before emitting. 800 samples @ 16kHz = 50ms. */
 	chunkSizeSamples?: number;
+	/** Optional time-domain frames for UI visualization. */
+	onAudioFrame?: (data: Uint8Array) => void;
 }
 
 export interface MicCaptureHandle {
@@ -62,6 +64,8 @@ export async function startMicPcm16Capture(
 
 	const audioContext = new AudioContext({ sampleRate: 16000 });
 	const source = audioContext.createMediaStreamSource(stream);
+	const analyser = audioContext.createAnalyser();
+	analyser.fftSize = 2048;
 
 	const workletBlob = new Blob([buildAudioWorkletProcessorCode()], {
 		type: "application/javascript",
@@ -85,14 +89,38 @@ export async function startMicPcm16Capture(
 	};
 
 	// Connect graph. Don't connect to destination to avoid echoing mic audio.
-	source.connect(workletNode);
+	source.connect(analyser);
+	analyser.connect(workletNode);
+
+	let rafId: number | null = null;
+	if (opts.onAudioFrame) {
+		const data = new Uint8Array(analyser.frequencyBinCount);
+		const tick = () => {
+			try {
+				analyser.getByteTimeDomainData(data);
+				// Copy so consumers aren't reading a mutated buffer.
+				opts.onAudioFrame?.(new Uint8Array(data));
+			} catch {
+				// ignore
+			}
+			rafId = requestAnimationFrame(tick);
+		};
+		rafId = requestAnimationFrame(tick);
+	}
 
 	const stop = async () => {
+		if (rafId !== null) {
+			cancelAnimationFrame(rafId);
+			rafId = null;
+		}
 		try {
 			workletNode.port.onmessage = null;
 		} catch {}
 		try {
 			workletNode.disconnect();
+		} catch {}
+		try {
+			analyser.disconnect();
 		} catch {}
 		try {
 			source.disconnect();

@@ -12,6 +12,8 @@ export interface MyPluginSettings {
 	openRouterReferer: string;
 	/** Optional: sent as X-Title header to OpenRouter for attribution. */
 	openRouterAppTitle: string;
+	/** Show the live widget overlay in the editor. */
+	showWidget: boolean;
 }
 
 export const DEFAULT_SETTINGS: MyPluginSettings = {
@@ -20,6 +22,7 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	openRouterModel: "openai/gpt-5-mini",
 	openRouterReferer: "",
 	openRouterAppTitle: "Tuon Live Transcribe (Obsidian)",
+	showWidget: true,
 };
 
 export class SampleSettingTab extends PluginSettingTab {
@@ -111,6 +114,19 @@ export class SampleSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.openRouterAppTitle = value.trim();
 						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Show live widget in editor")
+			.setDesc("Toggle the live transcription widget overlay in the editor.")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.showWidget)
+					.onChange(async (value) => {
+						this.plugin.settings.showWidget = value;
+						await this.plugin.saveSettings();
+						this.plugin.setWidgetVisible(value);
 					})
 			);
 	}
