@@ -9,12 +9,14 @@ export interface LiveTranscribeServiceOptions {
 	app: App;
 	getAssemblyAiApiKey: () => string;
 	onStatusText?: (text: string) => void;
+	onRunningChange?: (running: boolean) => void;
 }
 
 export class LiveTranscribeService {
 	private readonly app: App;
 	private readonly getAssemblyAiApiKey: () => string;
 	private readonly onStatusText?: (text: string) => void;
+	private readonly onRunningChange?: (running: boolean) => void;
 
 	private mic: MicCaptureHandle | null = null;
 	private aai: AssemblyAiRealtimeClient | null = null;
@@ -28,6 +30,7 @@ export class LiveTranscribeService {
 		this.app = opts.app;
 		this.getAssemblyAiApiKey = opts.getAssemblyAiApiKey;
 		this.onStatusText = opts.onStatusText;
+		this.onRunningChange = opts.onRunningChange;
 	}
 
 	get isRunning() {
@@ -49,6 +52,7 @@ export class LiveTranscribeService {
 		this.finalized = "";
 		this.current = "";
 		this.running = true;
+		this.onRunningChange?.(true);
 		this.onStatusText?.("Starting transcription…");
 
 		this.aai = new AssemblyAiRealtimeClient({ apiKey, sampleRate: 16000 });
@@ -86,6 +90,7 @@ export class LiveTranscribeService {
 	stop() {
 		if (!this.running) return;
 		this.running = false;
+		this.onRunningChange?.(false);
 		this.onStatusText?.("Stopping…");
 		this.cleanup();
 		new Notice("Live transcription stopped.");
@@ -125,7 +130,11 @@ export class LiveTranscribeService {
 
 		const cursor = editor.getCursor();
 		const prefix = cursor.ch === 0 ? "" : " ";
-		editor.replaceRange(prefix + out + " ", cursor);
+		const insertion = prefix + out + " ";
+		editor.replaceRange(insertion, cursor);
+		// Move cursor to end of inserted text so subsequent transcripts append.
+		const nextCursor = advanceCursor(cursor, insertion);
+		editor.setCursor(nextCursor);
 	}
 
 	private cleanup() {
@@ -147,5 +156,18 @@ export class LiveTranscribeService {
 
 		this.onStatusText?.("");
 	}
+}
+
+function advanceCursor(
+	cursor: { line: number; ch: number },
+	text: string
+): { line: number; ch: number } {
+	const lines = text.split("\n");
+	if (lines.length === 1) {
+		const first = lines[0] ?? "";
+		return { line: cursor.line, ch: cursor.ch + first.length };
+	}
+	const last = lines[lines.length - 1] ?? "";
+	return { line: cursor.line + lines.length - 1, ch: last.length };
 }
 
