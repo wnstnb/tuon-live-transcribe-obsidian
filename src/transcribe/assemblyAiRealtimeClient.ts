@@ -3,25 +3,46 @@ import { normalizeApiKey } from "../diagnostics/apiKeyDiagnostics";
 
 export type AssemblyAiTranscriptEvent =
 	| { type: "session_begin"; session_id?: string }
-	| { type: "transcript_update"; text: string; is_final: boolean }
+	| {
+			type: "transcript_update";
+			text: string;
+			is_final: boolean;
+			end_of_turn?: boolean;
+			formatted?: boolean;
+	  }
 	| { type: "session_terminated" }
 	| { type: "error"; message: string };
 
 export interface AssemblyAiRealtimeClientOptions {
 	apiKey: string;
 	sampleRate: number; // 16000
+	encoding?: "pcm_s16le" | "pcm_mulaw";
+	formatTurns?: boolean;
+	endOfTurnConfidenceThreshold?: number;
+	minEndOfTurnSilenceMs?: number;
+	maxTurnSilenceMs?: number;
 }
 
 export class AssemblyAiRealtimeClient {
 	private ws: WebSocket | null = null;
 	private readonly apiKey: string;
 	private readonly sampleRate: number;
+	private readonly encoding: "pcm_s16le" | "pcm_mulaw";
+	private readonly formatTurns: boolean;
+	private readonly endOfTurnConfidenceThreshold?: number;
+	private readonly minEndOfTurnSilenceMs?: number;
+	private readonly maxTurnSilenceMs?: number;
 
 	private onEventHandlers = new Set<(ev: AssemblyAiTranscriptEvent) => void>();
 
 	constructor(opts: AssemblyAiRealtimeClientOptions) {
 		this.apiKey = opts.apiKey;
 		this.sampleRate = opts.sampleRate;
+		this.encoding = opts.encoding ?? "pcm_s16le";
+		this.formatTurns = opts.formatTurns ?? true;
+		this.endOfTurnConfidenceThreshold = opts.endOfTurnConfidenceThreshold;
+		this.minEndOfTurnSilenceMs = opts.minEndOfTurnSilenceMs;
+		this.maxTurnSilenceMs = opts.maxTurnSilenceMs;
 	}
 
 	onEvent(handler: (ev: AssemblyAiTranscriptEvent) => void): () => void {
@@ -57,8 +78,23 @@ export class AssemblyAiRealtimeClient {
 		const url = new URL("wss://streaming.assemblyai.com/v3/ws");
 		url.searchParams.set("token", token);
 		url.searchParams.set("sample_rate", String(this.sampleRate));
-		url.searchParams.set("encoding", "pcm_s16le");
-		url.searchParams.set("format_turns", "true");
+		url.searchParams.set("encoding", this.encoding);
+		url.searchParams.set("format_turns", this.formatTurns ? "true" : "false");
+		if (Number.isFinite(this.endOfTurnConfidenceThreshold)) {
+			url.searchParams.set(
+				"end_of_turn_confidence_threshold",
+				String(this.endOfTurnConfidenceThreshold)
+			);
+		}
+		if (Number.isFinite(this.minEndOfTurnSilenceMs)) {
+			url.searchParams.set(
+				"min_end_of_turn_silence_when_confident",
+				String(this.minEndOfTurnSilenceMs)
+			);
+		}
+		if (Number.isFinite(this.maxTurnSilenceMs)) {
+			url.searchParams.set("max_turn_silence", String(this.maxTurnSilenceMs));
+		}
 
 		this.ws = new WebSocket(url.toString());
 		this.ws.binaryType = "arraybuffer";
@@ -140,15 +176,14 @@ export class AssemblyAiRealtimeClient {
 
 				if (typeof transcript === "string" && transcript.length > 0) {
 					// Prefer formatted final turns when format_turns=true.
-					if (endOfTurn) {
-						if (formatted) {
-							this.emit({ type: "transcript_update", text: transcript, is_final: true });
-						} else {
-							// Unformatted end-of-turn; ignore to avoid duplicating the formatted final.
-						}
-					} else {
-						this.emit({ type: "transcript_update", text: transcript, is_final: false });
-					}
+					const isFinal = endOfTurn && (formatted || !this.formatTurns);
+					this.emit({
+						type: "transcript_update",
+						text: transcript,
+						is_final: isFinal,
+						end_of_turn: endOfTurn,
+						formatted,
+					});
 				}
 				return;
 			}

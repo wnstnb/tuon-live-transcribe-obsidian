@@ -1,9 +1,24 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin } from "obsidian";
+import {
+	App,
+	Editor,
+	MarkdownRenderChild,
+	MarkdownView,
+	Modal,
+	Notice,
+	Plugin,
+	setIcon,
+} from "obsidian";
 import { DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab } from "./settings";
 import { openRouterChatCompletion } from "./ai/openrouter";
 import { buildSystemPrompt, buildUserPrompt, NotesAction } from "./ai/voiceSummaryPrompts";
 import { LiveTranscribeService } from "./transcribe/liveTranscribeService";
 import { AudioVisualizer } from "./ui/audioVisualizer";
+import {
+	buildVoiceSummaryFence,
+	createVoiceSummaryBlockData,
+	VOICE_SUMMARY_BLOCK_TYPE,
+} from "./voiceSummary/voiceSummaryBlock";
+import { renderVoiceSummaryBlock } from "./ui/voiceSummaryBlockRenderer";
 import {
 	showTestResultToast,
 	testAssemblyAiApiKey,
@@ -27,6 +42,18 @@ export default class MyPlugin extends Plugin {
 	private widgetLastVisualizerDraw = 0;
 	private widgetRibbonEl: HTMLElement | null = null;
 	private audioVisualizer: AudioVisualizer | null = null;
+	private readonly widgetMinWidth = 220;
+	private readonly widgetMaxWidth = 390;
+	private recordingBlockId: string | null = null;
+	private recordingListeners = new Set<
+		(state: { running: boolean; blockId: string | null }) => void
+	>();
+	private transcriptPreviewListeners = new Set<
+		(preview: string, state: { running: boolean; blockId: string | null }) => void
+	>();
+	private audioFrameListeners = new Set<
+		(data: Uint8Array | null, state: { running: boolean; blockId: string | null }) => void
+	>();
 
 	async onload() {
 		await this.loadSettings();
@@ -37,9 +64,30 @@ export default class MyPlugin extends Plugin {
 		this.liveTranscribe = new LiveTranscribeService({
 			app: this.app,
 			getAssemblyAiApiKey: () => this.settings.assemblyAiApiKey,
+			getAssemblyAiConfig: () => ({
+				sampleRate: this.settings.assemblyAiSampleRate,
+				chunkSizeSamples: this.settings.assemblyAiChunkSizeSamples,
+				encoding: this.settings.assemblyAiEncoding,
+				formatTurns: this.settings.assemblyAiFormatTurns,
+				endOfTurnConfidenceThreshold: this.settings.assemblyAiEndOfTurnConfidenceThreshold,
+				minEndOfTurnSilenceMs: this.settings.assemblyAiMinEndOfTurnSilenceMs,
+				maxTurnSilenceMs: this.settings.assemblyAiMaxTurnSilenceMs,
+			}),
 			onStatusText: (t) => this.updateStatusText(t),
-			onRunningChange: (running) => this.updateWidgetState(running),
-			onAudioFrame: (data) => this.updateVisualizer(data),
+			onRunningChange: (running) => {
+				this.updateWidgetState(running);
+				if (!running) {
+					this.recordingBlockId = null;
+				}
+				this.notifyRecordingChange();
+				if (!running) {
+					this.notifyAudioFrame(null);
+				}
+			},
+			onAudioFrame: (data) => {
+				this.updateVisualizer(data);
+				this.notifyAudioFrame(data);
+			},
 		});
 
 		if (this.settings.showWidget) {
@@ -50,6 +98,16 @@ export default class MyPlugin extends Plugin {
 				this.attachWidgetToActiveEditor();
 			})
 		);
+		this.registerEvent(
+			this.app.workspace.on("layout-change", () => {
+				this.updateWidgetOffset();
+				this.updateWidgetSize();
+			})
+		);
+		this.registerDomEvent(window, "resize", () => {
+			this.updateWidgetOffset();
+			this.updateWidgetSize();
+		});
 
 		this.widgetRibbonEl = this.createWidgetRibbon();
 		this.updateRibbonState(this.settings.showWidget);
@@ -110,6 +168,14 @@ export default class MyPlugin extends Plugin {
 		});
 
 		this.addCommand({
+			id: "tuon-insert-voice-summary-block",
+			name: "Tuon: Insert scribe block",
+			editorCallback: (editor: Editor) => {
+				this.insertVoiceSummaryBlock(editor);
+			},
+		});
+
+		this.addCommand({
 			id: "tuon-test-assemblyai-key",
 			name: "Tuon: Test AssemblyAI API key",
 			callback: () => void this.testAssemblyAiKey(),
@@ -120,6 +186,40 @@ export default class MyPlugin extends Plugin {
 			name: "Tuon: Test OpenRouter API key",
 			callback: () => void this.testOpenRouterKey(),
 		});
+
+		this.registerMarkdownCodeBlockProcessor(
+			VOICE_SUMMARY_BLOCK_TYPE,
+			(source, el, ctx) => {
+				const child = new MarkdownRenderChild(el);
+				const unsubscribe = renderVoiceSummaryBlock({
+					app: this.app,
+					el,
+					source,
+					sourcePath: ctx.sourcePath,
+					component: child,
+					actions: {
+						getRecordingState: () => this.getRecordingState(),
+						onRecordingChange: (handler) => this.onRecordingChange(handler),
+						onTranscriptPreview: (handler) => this.onTranscriptPreview(handler),
+						onAudioFrame: (handler) => this.onAudioFrame(handler),
+						getInteractionSettings: () => ({
+							autoScrollTranscript: this.settings.autoScrollTranscript,
+							autoSwitchToTranscript: this.settings.autoSwitchToTranscript,
+						}),
+						startRecordingForBlock: (opts) => this.startRecordingForBlock(opts),
+						stopRecording: () => this.stopRecording(),
+						summarizeTranscript: (transcript) =>
+							this.summarizeTranscript(transcript),
+						prettifyTranscript: (transcript) =>
+							this.prettifyTranscript(transcript),
+					},
+				});
+				child.onunload = () => {
+					if (unsubscribe) unsubscribe();
+				};
+				ctx.addChild(child);
+			}
+		);
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SampleSettingTab(this.app, this));
@@ -145,25 +245,37 @@ export default class MyPlugin extends Plugin {
 
 	private updateStatusText(text: string) {
 		const preview = (text || "").trim();
+		this.notifyTranscriptPreview(preview);
+		if (this.recordingBlockId) return;
 		if (this.widgetTranscriptEl) {
 			this.widgetTranscriptEl.textContent = preview || "Say something to begin…";
+			this.scrollWidgetTranscriptToBottom();
 		}
 	}
 
+	private scrollWidgetTranscriptToBottom() {
+		const el = this.widgetTranscriptEl;
+		if (!el) return;
+		requestAnimationFrame(() => {
+			el.scrollTop = el.scrollHeight;
+		});
+	}
+
 	private updateWidgetState(running: boolean) {
-		this.widgetRunning = running;
+		const widgetRunning = running && !this.recordingBlockId;
+		this.widgetRunning = widgetRunning;
 		if (this.widgetButtonEl) {
-			this.widgetButtonEl.textContent = running ? "Stop" : "Start";
-			this.widgetButtonEl.style.background = running
+			this.updateWidgetButtonIcon(widgetRunning);
+			this.widgetButtonEl.style.background = widgetRunning
 				? "var(--color-red)"
 				: "var(--background-secondary)";
-			this.widgetButtonEl.style.color = running ? "white" : "var(--text-normal)";
+			this.widgetButtonEl.style.color = widgetRunning ? "white" : "var(--text-normal)";
 		}
 		this.statusBarItemEl?.setText(running ? "Listening…" : "");
 		if (this.widgetEl) {
-			this.widgetEl.dataset.running = running ? "true" : "false";
+			this.widgetEl.dataset.running = widgetRunning ? "true" : "false";
 		}
-		if (running) {
+		if (widgetRunning) {
 			this.startWidgetTimer();
 		} else {
 			this.stopWidgetTimer();
@@ -247,16 +359,24 @@ export default class MyPlugin extends Plugin {
 
 		const button = document.createElement("button");
 		button.type = "button";
-		button.textContent = "Start";
 		button.style.fontSize = "12px";
-		button.style.padding = "4px 8px";
-		button.style.borderRadius = "6px";
+		button.style.width = "32px";
+		button.style.height = "32px";
+		button.style.padding = "0";
+		button.style.borderRadius = "9999px";
 		button.style.border = "1px solid var(--background-modifier-border)";
 		button.style.background = "var(--background-secondary)";
 		button.style.color = "var(--text-normal)";
 		button.style.cursor = "pointer";
+		button.style.display = "flex";
+		button.style.alignItems = "center";
+		button.style.justifyContent = "center";
 
 		this.registerDomEvent(button, "click", () => {
+			if (this.recordingBlockId) {
+				new Notice("Recording is active in a scribe block.");
+				return;
+			}
 			this.liveTranscribe?.toggle();
 		});
 
@@ -264,19 +384,22 @@ export default class MyPlugin extends Plugin {
 		header.appendChild(button);
 
 		const transcript = document.createElement("div");
+		transcript.className = "tuon-live-transcribe-widget__transcript";
 		transcript.textContent = "Say something to begin…";
 		transcript.style.fontSize = "12px";
+		transcript.style.lineHeight = "1.4";
 		transcript.style.opacity = "0.9";
 		transcript.style.marginBottom = "6px";
 		transcript.style.whiteSpace = "pre-wrap";
 		transcript.style.wordBreak = "break-word";
 		transcript.style.maxHeight = "64px";
-		transcript.style.overflow = "hidden";
+		transcript.style.overflow = "auto";
+		transcript.style.scrollbarWidth = "none";
+		(transcript.style as CSSStyleDeclaration & { msOverflowStyle?: string }).msOverflowStyle = "none";
 
 		// Minimal inline styling to float in editor view.
 		container.style.position = "absolute";
 		container.style.left = "50%";
-		container.style.bottom = "16px";
 		container.style.transform = "translateX(-50%)";
 		container.style.zIndex = "1000";
 		container.style.display = "flex";
@@ -289,9 +412,8 @@ export default class MyPlugin extends Plugin {
 		container.style.boxShadow = "0 6px 20px rgba(0,0,0,0.2)";
 		container.style.border = "1px solid var(--background-modifier-border)";
 		container.style.backdropFilter = "blur(6px)";
-		container.style.maxWidth = "390px";
-		container.style.minWidth = "220px";
-		container.style.width = "min(70vw, 390px)";
+		container.style.maxWidth = `${this.widgetMaxWidth}px`;
+		container.style.minWidth = `${this.widgetMinWidth}px`;
 
 		container.appendChild(transcript);
 		container.appendChild(header);
@@ -306,11 +428,13 @@ export default class MyPlugin extends Plugin {
 			barWidth: 3,
 			barGap: 1,
 			sensitivity: 6,
-			scrollSpeedPxPerSec: 12,
 		});
+		this.updateWidgetButtonIcon(false);
 		this.audioVisualizer.update(null, false);
 
 		this.attachWidgetToActiveEditor();
+		this.updateWidgetOffset();
+		this.updateWidgetSize();
 	}
 
 	private destroyLiveWidget() {
@@ -342,6 +466,46 @@ export default class MyPlugin extends Plugin {
 			this.widgetEl.remove();
 			host.appendChild(this.widgetEl);
 		}
+		this.updateWidgetOffset();
+		this.updateWidgetSize();
+	}
+
+	private updateWidgetOffset() {
+		if (!this.widgetEl) return;
+		const statusBar = document.querySelector(".status-bar") as HTMLElement | null;
+		const statusBarHeight = statusBar?.getBoundingClientRect().height ?? 0;
+		const gutter = 8;
+		const minBottom = 16;
+		const bottom = Math.max(minBottom, Math.ceil(statusBarHeight + gutter));
+		this.widgetEl.style.bottom = `${bottom}px`;
+		this.updateWidgetSize();
+	}
+
+	private updateWidgetSize() {
+		if (!this.widgetEl) return;
+		const host = this.widgetEl.parentElement;
+		if (!host) return;
+		const hostWidth = host.getBoundingClientRect().width || 0;
+		const maxAllowed = Math.max(0, hostWidth - 16);
+		const minAllowed = Math.min(this.widgetMinWidth, maxAllowed);
+		const target = Math.round(
+			Math.min(this.widgetMaxWidth, maxAllowed, Math.max(minAllowed, hostWidth * 0.7))
+		);
+		this.widgetEl.style.width = `${target}px`;
+	}
+
+	private updateWidgetButtonIcon(running: boolean) {
+		if (!this.widgetButtonEl) return;
+		this.widgetButtonEl.textContent = "";
+		setIcon(this.widgetButtonEl, running ? "square" : "mic");
+		this.widgetButtonEl.setAttr(
+			"aria-label",
+			running ? "Stop recording" : "Start recording"
+		);
+		this.widgetButtonEl.setAttr(
+			"title",
+			running ? "Stop recording" : "Start recording"
+		);
 	}
 
 	private startWidgetTimer() {
@@ -399,7 +563,7 @@ export default class MyPlugin extends Plugin {
 			return;
 		}
 
-		const system = buildSystemPrompt(action);
+		const system = this.getSystemPrompt(action);
 		const prompt = buildUserPrompt({
 			action,
 			transcription: selection,
@@ -427,13 +591,194 @@ export default class MyPlugin extends Plugin {
 			if (action === "prettify") {
 				editor.replaceSelection(out);
 			} else {
-				editor.replaceSelection(`${selection}\n\n---\n\n## Summary\n\n${out}\n`);
+				const cleaned = stripRedundantSummaryHeading(out);
+				editor.replaceSelection(`${selection}\n\n---\n\n${cleaned}\n`);
 			}
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
 			new Notice(`AI request failed: ${msg}`);
 		}
 	}
+
+	private insertVoiceSummaryBlock(editor: Editor) {
+		const data = createVoiceSummaryBlockData();
+		const fence = buildVoiceSummaryFence(data);
+		const cursor = editor.getCursor();
+		editor.replaceRange(`${fence}\n\n`, cursor);
+	}
+
+	private getRecordingState(): { running: boolean; blockId: string | null } {
+		return {
+			running: this.liveTranscribe?.isRunning ?? false,
+			blockId: this.recordingBlockId,
+		};
+	}
+
+	private onRecordingChange(
+		handler: (state: { running: boolean; blockId: string | null }) => void
+	): () => void {
+		this.recordingListeners.add(handler);
+		return () => this.recordingListeners.delete(handler);
+	}
+
+	private notifyRecordingChange() {
+		const state = this.getRecordingState();
+		for (const handler of this.recordingListeners) {
+			handler(state);
+		}
+	}
+
+	private onAudioFrame(
+		handler: (
+			data: Uint8Array | null,
+			state: { running: boolean; blockId: string | null }
+		) => void
+	): () => void {
+		this.audioFrameListeners.add(handler);
+		return () => this.audioFrameListeners.delete(handler);
+	}
+
+	private notifyAudioFrame(data: Uint8Array | null) {
+		const state = this.getRecordingState();
+		for (const handler of this.audioFrameListeners) {
+			handler(data, state);
+		}
+	}
+
+	private onTranscriptPreview(
+		handler: (preview: string, state: { running: boolean; blockId: string | null }) => void
+	): () => void {
+		this.transcriptPreviewListeners.add(handler);
+		return () => this.transcriptPreviewListeners.delete(handler);
+	}
+
+	private notifyTranscriptPreview(preview: string) {
+		const state = this.getRecordingState();
+		for (const handler of this.transcriptPreviewListeners) {
+			handler(preview, state);
+		}
+	}
+
+	private async startRecordingForBlock(opts: {
+		blockId: string;
+		sourcePath: string;
+		onFinalText: (text: string) => void;
+		onPartialText?: (text: string) => void;
+		onPreviewText?: (text: string) => void;
+	}): Promise<boolean> {
+		if (!this.liveTranscribe) return false;
+		if (this.liveTranscribe.isRunning) {
+			const active = this.recordingBlockId;
+			if (active && active !== opts.blockId) {
+				new Notice("Another scribe block is recording.");
+				return false;
+			}
+			if (!active) {
+				new Notice("Live transcription is already running.");
+				return false;
+			}
+		}
+		this.recordingBlockId = opts.blockId;
+		await this.liveTranscribe.start({
+			onFinalText: opts.onFinalText,
+			onPartialText: opts.onPartialText,
+			onPreviewText: opts.onPreviewText,
+		});
+		if (!this.liveTranscribe.isRunning) {
+			this.recordingBlockId = null;
+		}
+		this.notifyRecordingChange();
+		return this.liveTranscribe.isRunning;
+	}
+
+	private stopRecording() {
+		this.liveTranscribe?.stop();
+		this.recordingBlockId = null;
+		this.notifyRecordingChange();
+	}
+
+	private async summarizeTranscript(
+		transcript: string
+	): Promise<{ summary: string; model: string }> {
+		if (!this.settings.openRouterApiKey?.trim()) {
+			throw new Error("Missing OpenRouter API key. Set it in plugin settings.");
+		}
+		const system = this.getSystemPrompt("summary");
+		const prompt = buildUserPrompt({
+			action: "summary",
+			transcription: transcript,
+		});
+		const out = await openRouterChatCompletion(
+			{
+				apiKey: this.settings.openRouterApiKey,
+				model: this.settings.openRouterModel,
+				referer: this.settings.openRouterReferer,
+				appTitle: this.settings.openRouterAppTitle,
+			},
+			{
+				messages: [
+					{ role: "system", content: system },
+					{ role: "user", content: prompt },
+				],
+				temperature: 0.4,
+			}
+		);
+		const cleaned = stripRedundantSummaryHeading(out);
+		return { summary: cleaned, model: this.settings.openRouterModel };
+	}
+
+	private async prettifyTranscript(
+		transcript: string
+	): Promise<{ pretty: string; model: string }> {
+		if (!this.settings.openRouterApiKey?.trim()) {
+			throw new Error("Missing OpenRouter API key. Set it in plugin settings.");
+		}
+		const system = this.getSystemPrompt("prettify");
+		const prompt = buildUserPrompt({
+			action: "prettify",
+			transcription: transcript,
+		});
+		const out = await openRouterChatCompletion(
+			{
+				apiKey: this.settings.openRouterApiKey,
+				model: this.settings.openRouterModel,
+				referer: this.settings.openRouterReferer,
+				appTitle: this.settings.openRouterAppTitle,
+			},
+			{
+				messages: [
+					{ role: "system", content: system },
+					{ role: "user", content: prompt },
+				],
+				temperature: 0.2,
+			}
+		);
+		return { pretty: out.trim(), model: this.settings.openRouterModel };
+	}
+
+	private getSystemPrompt(action: NotesAction) {
+		if (action === "summary") {
+			const custom = this.settings.summarySystemPrompt?.trim();
+			return custom || buildSystemPrompt("summary");
+		}
+		const custom = this.settings.prettifySystemPrompt?.trim();
+		return custom || buildSystemPrompt("prettify");
+	}
+}
+
+function stripRedundantSummaryHeading(text: string): string {
+	const lines = text.split(/\r?\n/);
+	if (lines.length === 0) return text.trim();
+	const first = (lines[0] ?? "").trim().toLowerCase();
+	if (first === "summary" || first === "# summary" || first === "## summary") {
+		// Drop the first heading and any immediate blank line.
+		const rest = lines.slice(1);
+		while (rest.length > 0 && rest[0]?.trim() === "") {
+			rest.shift();
+		}
+		return rest.join("\n").trim();
+	}
+	return text.trim();
 }
 
 class SampleModal extends Modal {

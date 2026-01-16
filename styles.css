@@ -1,8 +1,470 @@
 /*
-
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
-
-If your plugin does not need CSS, delete this file.
-
+Voice summary block styles.
 */
+
+.tuon-voice-block {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 12px;
+	padding: 12px;
+	background: var(--background-primary);
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	container-type: inline-size;
+}
+
+.tuon-voice-block__header {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.tuon-voice-block__header-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.tuon-voice-block__title-wrap {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.tuon-voice-block__title {
+	font-weight: 600;
+	font-size: 14px;
+	cursor: text;
+	color: var(--text-normal);
+}
+
+.tuon-voice-block__title:hover {
+	color: var(--text-accent);
+	text-decoration: underline dotted;
+}
+
+.tuon-voice-block__title-edit {
+	display: none;
+	align-items: center;
+	gap: 6px;
+}
+
+.tuon-voice-block__title-input {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	padding: 4px 6px;
+	font-size: 12px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	min-width: 140px;
+}
+
+.tuon-voice-block__title-button {
+	width: 26px;
+	height: 26px;
+	border-radius: 6px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	padding: 0;
+}
+
+.tuon-voice-block__title-button.mod-cta {
+	background: var(--interactive-accent);
+	border-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.tuon-voice-block__actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.tuon-voice-block__visualizer {
+	width: 120px;
+	height: 24px;
+	border-radius: 6px;
+	background: var(--background-secondary);
+}
+
+.tuon-voice-block__visualizer-wrap {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 4px;
+	width: 120px;
+}
+
+.tuon-voice-block__visualizer-preview {
+	width: 100%;
+	font-size: 10px;
+	line-height: 1.2;
+	color: var(--text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.tuon-voice-button {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: 12px;
+	padding: 4px 10px;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	position: relative;
+}
+
+.tuon-voice-button-group {
+	display: inline-flex;
+	align-items: stretch;
+}
+
+.tuon-voice-button-group .tuon-voice-button {
+	border-radius: 8px;
+}
+
+.tuon-voice-button-group .tuon-voice-button:first-child {
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
+}
+
+.tuon-voice-button-group .tuon-voice-button:last-child {
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+}
+
+.tuon-voice-button-group .tuon-voice-button + .tuon-voice-button {
+	margin-left: -1px;
+}
+
+.tuon-voice-button--split {
+	padding: 4px 6px;
+	min-width: 26px;
+	justify-content: center;
+}
+
+.tuon-voice-button.mod-cta {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.tuon-voice-button:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+.tuon-voice-clear-button {
+	width: 32px;
+	height: 32px;
+	border-radius: 999px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	padding: 0;
+	line-height: 1;
+	transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.tuon-voice-clear-button.is-confirm {
+	background: var(--color-red);
+	border-color: var(--color-red);
+	color: white;
+}
+
+.tuon-voice-clear-button.is-shredding .tuon-voice-clear-button__icon {
+	opacity: 0.3;
+}
+
+.tuon-voice-clear-button__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	transition: opacity 0.2s ease;
+}
+
+.tuon-voice-clear-button svg {
+	width: 16px;
+	height: 16px;
+	display: block;
+}
+
+.tuon-voice-menu-button {
+	width: 32px;
+	height: 32px;
+	border-radius: 999px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	padding: 0;
+	line-height: 1;
+}
+
+.tuon-voice-menu-button__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 14px;
+	height: 14px;
+}
+
+.tuon-voice-menu-button svg {
+	width: 14px;
+	height: 14px;
+	display: block;
+}
+
+.tuon-voice-record-button {
+	width: 32px;
+	height: 32px;
+	border-radius: 999px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	padding: 0;
+	line-height: 1;
+}
+
+.tuon-voice-record-button.is-recording {
+	background: var(--color-red);
+	border-color: var(--color-red);
+	color: white;
+}
+
+.tuon-voice-record-button__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+}
+
+.tuon-voice-record-button svg {
+	width: 16px;
+	height: 16px;
+	display: block;
+}
+
+.tuon-voice-button__icon svg {
+	width: 14px;
+	height: 14px;
+}
+
+.tuon-voice-spinner {
+	width: 12px;
+	height: 12px;
+	border: 2px solid currentColor;
+	border-top-color: transparent;
+	border-radius: 999px;
+	display: none;
+	animation: tuon-spin 0.8s linear infinite;
+}
+
+.tuon-voice-button__label {
+	display: inline-flex;
+}
+
+@media (max-width: 560px) {
+	.tuon-voice-block__actions .tuon-voice-button__label {
+		display: none;
+	}
+
+	.tuon-voice-block__actions .tuon-voice-button {
+		padding: 4px 6px;
+	}
+}
+
+@container (max-width: 520px) {
+	.tuon-voice-block__actions .tuon-voice-button__label {
+		display: none;
+	}
+
+	.tuon-voice-block__actions .tuon-voice-button {
+		padding: 4px 6px;
+	}
+}
+
+.tuon-voice-block__tabs-row {
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: 12px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.tuon-voice-block__tabs {
+	display: flex;
+	gap: 6px;
+	align-items: flex-end;
+}
+
+.tuon-voice-block__tabs button {
+	border: 1px solid var(--background-modifier-border);
+	border-bottom: none;
+	border-radius: 12px 12px 0 0;
+	padding: 6px 12px;
+	background: var(--background-primary);
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.tuon-voice-block__tabs button.is-active {
+	background: var(--background-secondary);
+	font-weight: 600;
+	box-shadow: 0 -1px 0 var(--background-secondary);
+}
+
+.tuon-voice-block__tabs-actions {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	margin-left: auto;
+	padding-bottom: 4px;
+}
+
+.tuon-voice-block__panel {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 8px;
+	background: var(--background-secondary);
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.tuon-voice-block__textarea {
+	width: 100%;
+	min-height: 140px;
+	resize: none;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 8px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-size: 12px;
+	line-height: 1.5;
+	overflow-y: auto;
+	max-height: 600px;
+}
+
+.tuon-voice-block__readonly,
+.tuon-voice-block__summary {
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--text-normal);
+	max-height: 600px;
+	overflow: auto;
+}
+
+.tuon-voice-block__panel-actions {
+	display: flex;
+	justify-content: flex-end;
+}
+
+.tuon-voice-block__hint {
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+.tuon-settings-tabs {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
+.tuon-settings-tab {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 4px 10px;
+	background: var(--background-secondary);
+	cursor: pointer;
+	font-size: 12px;
+}
+
+.tuon-settings-tab.is-active {
+	background: var(--background-modifier-hover);
+	font-weight: 600;
+}
+
+.tuon-settings-content h4 {
+	margin: 16px 0 8px;
+	font-size: 13px;
+}
+
+.tuon-voice-block__meta {
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+.tuon-voice-badge {
+	font-size: 10px;
+	padding: 2px 6px;
+	border-radius: 999px;
+	background: var(--background-modifier-hover);
+	color: var(--text-muted);
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.tuon-voice-badge--warn {
+	background: rgba(255, 170, 0, 0.15);
+	color: var(--text-normal);
+}
+
+.tuon-voice-badge--recording {
+	background: rgba(255, 0, 0, 0.15);
+	color: var(--text-normal);
+}
+
+@keyframes tuon-spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.tuon-voice-error {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 10px;
+	padding: 10px;
+	background: var(--background-secondary);
+}
+
+.block-language-tuon-voice .edit-block-button,
+.block-language-tuon-voice .code-block-flair,
+.block-language-tuon-voice .code-block-flair__button,
+.block-language-tuon-voice .code-block-flair__icon {
+	display: none !important;
+}
+
+.tuon-live-transcribe-widget__transcript::-webkit-scrollbar {
+	display: none;
+}

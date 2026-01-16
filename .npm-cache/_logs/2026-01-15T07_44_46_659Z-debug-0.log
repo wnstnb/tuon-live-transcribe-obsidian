@@ -1,0 +1,475 @@
+0 verbose cli /usr/local/bin/node /usr/local/bin/npm
+1 info using npm@10.9.2
+2 info using node@v22.16.0
+3 silly config load:file:/usr/local/lib/node_modules/npm/npmrc
+4 silly config load:file:/Users/wband/Projects/tuon-live-transcribe-obsidian/.npmrc
+5 silly config load:file:/Users/wband/.npmrc
+6 silly config load:file:/usr/local/etc/npmrc
+7 verbose title npm install yaml@latest
+8 verbose argv "install" "yaml@latest" "--cache" "/Users/wband/Projects/tuon-live-transcribe-obsidian/.npm-cache"
+9 verbose logfile logs-max:10 dir:/Users/wband/Projects/tuon-live-transcribe-obsidian/.npm-cache/_logs/2026-01-15T07_44_46_659Z-
+10 verbose logfile /Users/wband/Projects/tuon-live-transcribe-obsidian/.npm-cache/_logs/2026-01-15T07_44_46_659Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+13 silly packumentCache corgi:https://registry.npmjs.org/yaml cache-miss
+14 http fetch GET 200 https://registry.npmjs.org/yaml 121ms (cache miss)
+15 silly packumentCache corgi:https://registry.npmjs.org/yaml set size:undefined disposed:false
+16 silly idealTree buildDeps
+17 silly fetch manifest yaml@2.8.2
+18 silly packumentCache full:https://registry.npmjs.org/yaml cache-miss
+19 http fetch GET 200 https://registry.npmjs.org/yaml 41ms (cache miss)
+20 silly packumentCache full:https://registry.npmjs.org/yaml set size:undefined disposed:false
+21 silly placeDep ROOT yaml@2.8.2 REPLACE for: obsidian-sample-plugin@1.0.0 want: 2.8.2
+22 silly reify mark retired [
+22 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/yaml',
+22 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/.bin/yaml'
+22 silly reify ]
+23 silly reify moves {
+23 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/yaml': '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/.yaml-CYtzyUko',
+23 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/.bin/yaml': '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/.bin/.yaml-UiJG8baK'
+23 silly reify }
+24 silly audit bulk request {
+24 silly audit   '@codemirror/state': [ '6.5.0' ],
+24 silly audit   '@codemirror/view': [ '6.38.6' ],
+24 silly audit   '@esbuild/aix-ppc64': [ '0.25.5' ],
+24 silly audit   '@esbuild/android-arm': [ '0.25.5' ],
+24 silly audit   '@esbuild/android-arm64': [ '0.25.5' ],
+24 silly audit   '@esbuild/android-x64': [ '0.25.5' ],
+24 silly audit   '@esbuild/darwin-arm64': [ '0.25.5' ],
+24 silly audit   '@esbuild/darwin-x64': [ '0.25.5' ],
+24 silly audit   '@esbuild/freebsd-arm64': [ '0.25.5' ],
+24 silly audit   '@esbuild/freebsd-x64': [ '0.25.5' ],
+24 silly audit   '@esbuild/linux-arm': [ '0.25.5' ],
+24 silly audit   '@esbuild/linux-arm64': [ '0.25.5' ],
+24 silly audit   '@esbuild/linux-ia32': [ '0.25.5' ],
+24 silly audit   '@esbuild/linux-loong64': [ '0.25.5' ],
+24 silly audit   '@esbuild/linux-mips64el': [ '0.25.5' ],
+24 silly audit   '@esbuild/linux-ppc64': [ '0.25.5' ],
+24 silly audit   '@esbuild/linux-riscv64': [ '0.25.5' ],
+24 silly audit   '@esbuild/linux-s390x': [ '0.25.5' ],
+24 silly audit   '@esbuild/linux-x64': [ '0.25.5' ],
+24 silly audit   '@esbuild/netbsd-arm64': [ '0.25.5' ],
+24 silly audit   '@esbuild/netbsd-x64': [ '0.25.5' ],
+24 silly audit   '@esbuild/openbsd-arm64': [ '0.25.5' ],
+24 silly audit   '@esbuild/openbsd-x64': [ '0.25.5' ],
+24 silly audit   '@esbuild/sunos-x64': [ '0.25.5' ],
+24 silly audit   '@esbuild/win32-arm64': [ '0.25.5' ],
+24 silly audit   '@esbuild/win32-ia32': [ '0.25.5' ],
+24 silly audit   '@esbuild/win32-x64': [ '0.25.5' ],
+24 silly audit   '@eslint-community/eslint-utils': [ '4.9.0' ],
+24 silly audit   'eslint-visitor-keys': [ '3.4.3', '4.2.1' ],
+24 silly audit   '@eslint-community/regexpp': [ '4.12.2' ],
+24 silly audit   '@eslint/config-array': [ '0.21.1' ],
+24 silly audit   '@eslint/config-helpers': [ '0.4.2' ],
+24 silly audit   '@eslint/core': [ '0.17.0' ],
+24 silly audit   '@eslint/eslintrc': [ '3.3.1' ],
+24 silly audit   '@eslint/js': [ '9.30.1', '9.39.1' ],
+24 silly audit   '@eslint/json': [ '0.14.0' ],
+24 silly audit   '@eslint/object-schema': [ '2.1.7' ],
+24 silly audit   '@eslint/plugin-kit': [ '0.4.1' ],
+24 silly audit   '@humanfs/core': [ '0.19.1' ],
+24 silly audit   '@humanfs/node': [ '0.16.7' ],
+24 silly audit   '@humanwhocodes/module-importer': [ '1.0.1' ],
+24 silly audit   '@humanwhocodes/momoa': [ '3.3.10' ],
+24 silly audit   '@humanwhocodes/retry': [ '0.4.3' ],
+24 silly audit   '@marijn/find-cluster-break': [ '1.0.2' ],
+24 silly audit   '@microsoft/eslint-plugin-sdl': [ '1.1.0' ],
+24 silly audit   'eslint-plugin-security': [ '1.4.0', '2.1.1' ],
+24 silly audit   'safe-regex': [ '1.1.0', '2.1.1' ],
+24 silly audit   '@nodelib/fs.scandir': [ '2.1.5' ],
+24 silly audit   '@nodelib/fs.stat': [ '2.0.5' ],
+24 silly audit   '@nodelib/fs.walk': [ '1.2.8' ],
+24 silly audit   '@pkgr/core': [ '0.1.2' ],
+24 silly audit   '@rtsao/scc': [ '1.1.0' ],
+24 silly audit   '@types/codemirror': [ '5.60.8' ],
+24 silly audit   '@types/eslint': [ '8.56.2' ],
+24 silly audit   '@types/estree': [ '1.0.8' ],
+24 silly audit   '@types/json-schema': [ '7.0.15' ],
+24 silly audit   '@types/json5': [ '0.0.29' ],
+24 silly audit   '@types/node': [ '16.18.126', '20.12.12' ],
+24 silly audit   '@types/tern': [ '0.23.9' ],
+24 silly audit   '@typescript-eslint/eslint-plugin': [ '8.35.1' ],
+24 silly audit   ignore: [ '7.0.5', '5.3.2' ],
+24 silly audit   '@typescript-eslint/parser': [ '8.35.1' ],
+24 silly audit   '@typescript-eslint/project-service': [ '8.35.1' ],
+24 silly audit   '@typescript-eslint/scope-manager': [ '8.35.1' ],
+24 silly audit   '@typescript-eslint/tsconfig-utils': [ '8.35.1' ],
+24 silly audit   '@typescript-eslint/type-utils': [ '8.35.1' ],
+24 silly audit   '@typescript-eslint/types': [ '8.35.1' ],
+24 silly audit   '@typescript-eslint/typescript-estree': [ '8.35.1' ],
+24 silly audit   'brace-expansion': [ '2.0.2', '1.1.12' ],
+24 silly audit   minimatch: [ '9.0.5', '8.0.4', '3.1.2' ],
+24 silly audit   semver: [ '7.7.3', '6.3.1' ],
+24 silly audit   '@typescript-eslint/utils': [ '8.35.1' ],
+24 silly audit   '@typescript-eslint/visitor-keys': [ '8.35.1' ],
+24 silly audit   acorn: [ '8.15.0' ],
+24 silly audit   'acorn-jsx': [ '5.3.2' ],
+24 silly audit   ajv: [ '6.12.6', '8.17.1' ],
+24 silly audit   'ansi-styles': [ '4.3.0' ],
+24 silly audit   argparse: [ '2.0.1' ],
+24 silly audit   'array-buffer-byte-length': [ '1.0.2' ],
+24 silly audit   'array-includes': [ '3.1.9' ],
+24 silly audit   'array.prototype.findlast': [ '1.2.5' ],
+24 silly audit   'array.prototype.findlastindex': [ '1.2.6' ],
+24 silly audit   'array.prototype.flat': [ '1.3.3' ],
+24 silly audit   'array.prototype.flatmap': [ '1.3.3' ],
+24 silly audit   'array.prototype.tosorted': [ '1.1.4' ],
+24 silly audit   'arraybuffer.prototype.slice': [ '1.0.4' ],
+24 silly audit   'async-function': [ '1.0.0' ],
+24 silly audit   'available-typed-arrays': [ '1.0.7' ],
+24 silly audit   'balanced-match': [ '1.0.2' ],
+24 silly audit   braces: [ '3.0.3' ],
+24 silly audit   'call-bind': [ '1.0.8' ],
+24 silly audit   'call-bind-apply-helpers': [ '1.0.2' ],
+24 silly audit   'call-bound': [ '1.0.4' ],
+24 silly audit   callsites: [ '3.1.0' ],
+24 silly audit   chalk: [ '4.1.2' ],
+24 silly audit   'color-convert': [ '2.0.1' ],
+24 silly audit   'color-name': [ '1.1.4' ],
+24 silly audit   'concat-map': [ '0.0.1' ],
+24 silly audit   crelt: [ '1.0.6' ],
+24 silly audit   'cross-spawn': [ '7.0.6' ],
+24 silly audit   'data-view-buffer': [ '1.0.2' ],
+24 silly audit   'data-view-byte-length': [ '1.0.2' ],
+24 silly audit   'data-view-byte-offset': [ '1.0.1' ],
+24 silly audit   debug: [ '4.4.3', '3.2.7' ],
+24 silly audit   'deep-is': [ '0.1.4' ],
+24 silly audit   'define-data-property': [ '1.1.4' ],
+24 silly audit   'define-properties': [ '1.2.1' ],
+24 silly audit   doctrine: [ '2.1.0' ],
+24 silly audit   'dunder-proto': [ '1.0.1' ],
+24 silly audit   empathic: [ '2.0.0' ],
+24 silly audit   'enhanced-resolve': [ '5.18.3' ],
+24 silly audit   'es-abstract': [ '1.24.0' ],
+24 silly audit   'es-define-property': [ '1.0.1' ],
+24 silly audit   'es-errors': [ '1.3.0' ],
+24 silly audit   'es-iterator-helpers': [ '1.2.1' ],
+24 silly audit   'es-object-atoms': [ '1.1.1' ],
+24 silly audit   'es-set-tostringtag': [ '2.1.0' ],
+24 silly audit   'es-shim-unscopables': [ '1.1.0' ],
+24 silly audit   'es-to-primitive': [ '1.3.0' ],
+24 silly audit   esbuild: [ '0.25.5' ],
+24 silly audit   'escape-string-regexp': [ '4.0.0' ],
+24 silly audit   eslint: [ '9.39.1' ],
+24 silly audit   'eslint-compat-utils': [ '0.5.1' ],
+24 silly audit   'eslint-import-resolver-node': [ '0.3.9' ],
+24 silly audit   'eslint-module-utils': [ '2.12.1' ],
+24 silly audit   'eslint-plugin-depend': [ '1.3.1' ],
+24 silly audit   'eslint-plugin-es-x': [ '7.8.0' ],
+24 silly audit   'eslint-plugin-import': [ '2.32.0' ],
+24 silly audit   'eslint-plugin-json-schema-validator': [ '5.1.0' ],
+24 silly audit   'json-schema-traverse': [ '1.0.0', '0.4.1' ],
+24 silly audit   'eslint-plugin-n': [ '17.10.3' ],
+24 silly audit   globals: [ '15.15.0', '14.0.0' ],
+24 silly audit   'eslint-plugin-obsidianmd': [ '0.1.9' ],
+24 silly audit   obsidian: [ '1.8.7', '1.10.3' ],
+24 silly audit   typescript: [ '5.4.5', '5.8.3' ],
+24 silly audit   'eslint-plugin-react': [ '7.37.3' ],
+24 silly audit   resolve: [ '2.0.0-next.5', '1.22.11' ],
+24 silly audit   'eslint-scope': [ '8.4.0' ],
+24 silly audit   espree: [ '10.4.0', '9.6.1' ],
+24 silly audit   esquery: [ '1.6.0' ],
+24 silly audit   esrecurse: [ '4.3.0' ],
+24 silly audit   estraverse: [ '5.3.0' ],
+24 silly audit   esutils: [ '2.0.3' ],
+24 silly audit   'fast-deep-equal': [ '3.1.3' ],
+24 silly audit   'fast-glob': [ '3.3.3' ],
+24 silly audit   'glob-parent': [ '5.1.2', '6.0.2' ],
+24 silly audit   'fast-json-stable-stringify': [ '2.1.0' ],
+24 silly audit   'fast-levenshtein': [ '2.0.6' ],
+24 silly audit   'fast-uri': [ '3.1.0' ],
+24 silly audit   fastq: [ '1.19.1' ],
+24 silly audit   'file-entry-cache': [ '8.0.0' ],
+24 silly audit   'fill-range': [ '7.1.1' ],
+24 silly audit   'find-up': [ '5.0.0' ],
+24 silly audit   'flat-cache': [ '4.0.1' ],
+24 silly audit   flatted: [ '3.3.3' ],
+24 silly audit   'for-each': [ '0.3.5' ],
+24 silly audit   'function-bind': [ '1.1.2' ],
+24 silly audit   'function.prototype.name': [ '1.1.8' ],
+24 silly audit   'functions-have-names': [ '1.2.3' ],
+24 silly audit   'generator-function': [ '2.0.1' ],
+24 silly audit   'get-intrinsic': [ '1.3.0' ],
+24 silly audit   'get-proto': [ '1.0.1' ],
+24 silly audit   'get-symbol-description': [ '1.1.0' ],
+24 silly audit   'get-tsconfig': [ '4.13.0' ],
+24 silly audit   globalthis: [ '1.0.4' ],
+24 silly audit   gopd: [ '1.2.0' ],
+24 silly audit   'graceful-fs': [ '4.2.11' ],
+24 silly audit   graphemer: [ '1.4.0' ],
+24 silly audit   'has-bigints': [ '1.1.0' ],
+24 silly audit   'has-flag': [ '4.0.0' ],
+24 silly audit   'has-property-descriptors': [ '1.0.2' ],
+24 silly audit   'has-proto': [ '1.2.0' ],
+24 silly audit   'has-symbols': [ '1.1.0' ],
+24 silly audit   'has-tostringtag': [ '1.0.2' ],
+24 silly audit   hasown: [ '2.0.2' ],
+24 silly audit   'import-fresh': [ '3.3.1' ],
+24 silly audit   imurmurhash: [ '0.1.4' ],
+24 silly audit   'internal-slot': [ '1.1.0' ],
+24 silly audit   'is-array-buffer': [ '3.0.5' ],
+24 silly audit   'is-async-function': [ '2.1.1' ],
+24 silly audit   'is-bigint': [ '1.1.0' ],
+24 silly audit   'is-boolean-object': [ '1.2.2' ],
+24 silly audit   'is-callable': [ '1.2.7' ],
+24 silly audit   'is-core-module': [ '2.16.1' ],
+24 silly audit   'is-data-view': [ '1.0.2' ],
+24 silly audit   'is-date-object': [ '1.1.0' ],
+24 silly audit   'is-extglob': [ '2.1.1' ],
+24 silly audit   'is-finalizationregistry': [ '1.1.1' ],
+24 silly audit   'is-generator-function': [ '1.1.2' ],
+24 silly audit   'is-glob': [ '4.0.3' ],
+24 silly audit   'is-map': [ '2.0.3' ],
+24 silly audit   'is-negative-zero': [ '2.0.3' ],
+24 silly audit   'is-number': [ '7.0.0' ],
+24 silly audit   'is-number-object': [ '1.1.1' ],
+24 silly audit   'is-regex': [ '1.2.1' ],
+24 silly audit   'is-set': [ '2.0.3' ],
+24 silly audit   'is-shared-array-buffer': [ '1.0.4' ],
+24 silly audit   'is-string': [ '1.1.1' ],
+24 silly audit   'is-symbol': [ '1.1.1' ],
+24 silly audit   'is-typed-array': [ '1.1.15' ],
+24 silly audit   'is-weakmap': [ '2.0.2' ],
+24 silly audit   'is-weakref': [ '1.1.1' ],
+24 silly audit   'is-weakset': [ '2.0.4' ],
+24 silly audit   isarray: [ '2.0.5' ],
+24 silly audit   isexe: [ '2.0.0' ],
+24 silly audit   'iterator.prototype': [ '1.1.5' ],
+24 silly audit   jiti: [ '2.6.1' ],
+24 silly audit   'js-tokens': [ '4.0.0' ],
+24 silly audit   'js-yaml': [ '4.1.1' ],
+24 silly audit   'json-buffer': [ '3.0.1' ],
+24 silly audit   'json-schema-migrate': [ '2.0.0' ],
+24 silly audit   'json-stable-stringify-without-jsonify': [ '1.0.1' ],
+24 silly audit   json5: [ '1.0.2' ],
+24 silly audit   'jsonc-eslint-parser': [ '2.4.1' ],
+24 silly audit   'jsx-ast-utils': [ '3.3.5' ],
+24 silly audit   keyv: [ '4.5.4' ],
+24 silly audit   levn: [ '0.4.1' ],
+24 silly audit   'locate-path': [ '6.0.0' ],
+24 silly audit   'lodash.merge': [ '4.6.2' ],
+24 silly audit   'loose-envify': [ '1.4.0' ],
+24 silly audit   'math-intrinsics': [ '1.1.0' ],
+24 silly audit   merge2: [ '1.4.1' ],
+24 silly audit   micromatch: [ '4.0.8' ],
+24 silly audit   minimist: [ '1.2.8' ],
+24 silly audit   'module-replacements': [ '2.10.1' ],
+24 silly audit   moment: [ '2.29.4' ],
+24 silly audit   ms: [ '2.1.3' ],
+24 silly audit   'natural-compare': [ '1.4.0' ],
+24 silly audit   'object-assign': [ '4.1.1' ],
+24 silly audit   'object-inspect': [ '1.13.4' ],
+24 silly audit   'object-keys': [ '1.1.1' ],
+24 silly audit   'object.assign': [ '4.1.7' ],
+24 silly audit   'object.entries': [ '1.1.9' ],
+24 silly audit   'object.fromentries': [ '2.0.8' ],
+24 silly audit   'object.groupby': [ '1.0.3' ],
+24 silly audit   'object.values': [ '1.2.1' ],
+24 silly audit   optionator: [ '0.9.4' ],
+24 silly audit   'own-keys': [ '1.0.1' ],
+24 silly audit   'p-limit': [ '3.1.0' ],
+24 silly audit   'p-locate': [ '5.0.0' ],
+24 silly audit   'parent-module': [ '1.0.1' ],
+24 silly audit   'path-exists': [ '4.0.0' ],
+24 silly audit   'path-key': [ '3.1.1' ],
+24 silly audit   'path-parse': [ '1.0.7' ],
+24 silly audit   picomatch: [ '2.3.1' ],
+24 silly audit   'possible-typed-array-names': [ '1.1.0' ],
+24 silly audit   'prelude-ls': [ '1.2.1' ],
+24 silly audit   'prop-types': [ '15.8.1' ],
+24 silly audit   punycode: [ '2.3.1' ],
+24 silly audit   'queue-microtask': [ '1.2.3' ],
+24 silly audit   'react-is': [ '16.13.1' ],
+24 silly audit   'reflect.getprototypeof': [ '1.0.10' ],
+24 silly audit   'regexp-tree': [ '0.1.27' ],
+24 silly audit   'regexp.prototype.flags': [ '1.5.4' ],
+24 silly audit   'require-from-string': [ '2.0.2' ],
+24 silly audit   'resolve-from': [ '4.0.0' ],
+24 silly audit   'resolve-pkg-maps': [ '1.0.0' ],
+24 silly audit   ret: [ '0.1.15' ],
+24 silly audit   reusify: [ '1.1.0' ],
+24 silly audit   'run-parallel': [ '1.2.0' ],
+24 silly audit   'safe-array-concat': [ '1.1.3' ],
+24 silly audit   'safe-buffer': [ '5.2.1' ],
+24 silly audit   'safe-push-apply': [ '1.0.0' ],
+24 silly audit   'safe-regex-test': [ '1.1.0' ],
+24 silly audit   'set-function-length': [ '1.2.2' ],
+24 silly audit   'set-function-name': [ '2.0.2' ],
+24 silly audit   'set-proto': [ '1.0.0' ],
+24 silly audit   'shebang-command': [ '2.0.0' ],
+24 silly audit   'shebang-regex': [ '3.0.0' ],
+24 silly audit   'side-channel': [ '1.1.0' ],
+24 silly audit   'side-channel-list': [ '1.0.0' ],
+24 silly audit   'side-channel-map': [ '1.0.1' ],
+24 silly audit   'side-channel-weakmap': [ '1.0.2' ],
+24 silly audit   'stop-iteration-iterator': [ '1.1.0' ],
+24 silly audit   'string.prototype.matchall': [ '4.0.12' ],
+24 silly audit   'string.prototype.repeat': [ '1.0.0' ],
+24 silly audit   'string.prototype.trim': [ '1.2.10' ],
+24 silly audit   'string.prototype.trimend': [ '1.0.9' ],
+24 silly audit   'string.prototype.trimstart': [ '1.0.8' ],
+24 silly audit   'strip-bom': [ '3.0.0' ],
+24 silly audit   'strip-json-comments': [ '3.1.1' ],
+24 silly audit   'style-mod': [ '4.1.3' ],
+24 silly audit   'supports-color': [ '7.2.0' ],
+24 silly audit   'supports-preserve-symlinks-flag': [ '1.0.0' ],
+24 silly audit   synckit: [ '0.9.3' ],
+24 silly audit   tslib: [ '2.8.1', '2.4.0' ],
+24 silly audit   tapable: [ '2.3.0' ],
+24 silly audit   'to-regex-range': [ '5.0.1' ],
+24 silly audit   'toml-eslint-parser': [ '0.9.3' ],
+24 silly audit   'ts-api-utils': [ '2.1.0' ],
+24 silly audit   'tsconfig-paths': [ '3.15.0' ],
+24 silly audit   'tunnel-agent': [ '0.6.0' ],
+24 silly audit   'type-check': [ '0.4.0' ],
+24 silly audit   'typed-array-buffer': [ '1.0.3' ],
+24 silly audit   'typed-array-byte-length': [ '1.0.3' ],
+24 silly audit   'typed-array-byte-offset': [ '1.0.4' ],
+24 silly audit   'typed-array-length': [ '1.0.7' ],
+24 silly audit   'typescript-eslint': [ '8.35.1' ],
+24 silly audit   'unbox-primitive': [ '1.1.0' ],
+24 silly audit   'undici-types': [ '5.26.5' ],
+24 silly audit   'uri-js': [ '4.4.1' ],
+24 silly audit   'w3c-keyname': [ '2.2.8' ],
+24 silly audit   which: [ '2.0.2' ],
+24 silly audit   'which-boxed-primitive': [ '1.1.1' ],
+24 silly audit   'which-builtin-type': [ '1.2.1' ],
+24 silly audit   'which-collection': [ '1.0.2' ],
+24 silly audit   'which-typed-array': [ '1.1.19' ],
+24 silly audit   'word-wrap': [ '1.2.5' ],
+24 silly audit   'yaml-eslint-parser': [ '1.3.0' ],
+24 silly audit   'yocto-queue': [ '0.1.0' ],
+24 silly audit   yaml: [ '2.8.2' ]
+24 silly audit }
+25 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/win32-x64
+26 silly reify mark deleted [
+26 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/win32-x64'
+26 silly reify ]
+27 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/win32-ia32
+28 silly reify mark deleted [
+28 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/win32-ia32'
+28 silly reify ]
+29 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/win32-arm64
+30 silly reify mark deleted [
+30 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/win32-arm64'
+30 silly reify ]
+31 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/sunos-x64
+32 silly reify mark deleted [
+32 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/sunos-x64'
+32 silly reify ]
+33 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/openbsd-x64
+34 silly reify mark deleted [
+34 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/openbsd-x64'
+34 silly reify ]
+35 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/openbsd-arm64
+36 silly reify mark deleted [
+36 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/openbsd-arm64'
+36 silly reify ]
+37 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/netbsd-x64
+38 silly reify mark deleted [
+38 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/netbsd-x64'
+38 silly reify ]
+39 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/netbsd-arm64
+40 silly reify mark deleted [
+40 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/netbsd-arm64'
+40 silly reify ]
+41 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/linux-x64
+42 silly reify mark deleted [
+42 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/linux-x64'
+42 silly reify ]
+43 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/linux-s390x
+44 silly reify mark deleted [
+44 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/linux-s390x'
+44 silly reify ]
+45 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/linux-riscv64
+46 silly reify mark deleted [
+46 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/linux-riscv64'
+46 silly reify ]
+47 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/linux-ppc64
+48 silly reify mark deleted [
+48 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/linux-ppc64'
+48 silly reify ]
+49 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/linux-mips64el
+50 silly reify mark deleted [
+50 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/linux-mips64el'
+50 silly reify ]
+51 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/linux-loong64
+52 silly reify mark deleted [
+52 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/linux-loong64'
+52 silly reify ]
+53 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/linux-ia32
+54 silly reify mark deleted [
+54 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/linux-ia32'
+54 silly reify ]
+55 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/linux-arm64
+56 silly reify mark deleted [
+56 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/linux-arm64'
+56 silly reify ]
+57 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/linux-arm
+58 silly reify mark deleted [
+58 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/linux-arm'
+58 silly reify ]
+59 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/freebsd-x64
+60 silly reify mark deleted [
+60 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/freebsd-x64'
+60 silly reify ]
+61 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/freebsd-arm64
+62 silly reify mark deleted [
+62 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/freebsd-arm64'
+62 silly reify ]
+63 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/darwin-x64
+64 silly reify mark deleted [
+64 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/darwin-x64'
+64 silly reify ]
+65 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/android-x64
+66 silly reify mark deleted [
+66 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/android-x64'
+66 silly reify ]
+67 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/android-arm64
+68 silly reify mark deleted [
+68 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/android-arm64'
+68 silly reify ]
+69 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/android-arm
+70 silly reify mark deleted [
+70 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/android-arm'
+70 silly reify ]
+71 verbose reify failed optional dependency /Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/aix-ppc64
+72 silly reify mark deleted [
+72 silly reify   '/Users/wband/Projects/tuon-live-transcribe-obsidian/node_modules/@esbuild/aix-ppc64'
+72 silly reify ]
+73 http cache yaml@https://registry.npmjs.org/yaml/-/yaml-2.8.2.tgz 0ms (cache hit)
+74 silly tarball no local data for yaml@https://registry.npmjs.org/yaml/-/yaml-2.8.2.tgz. Extracting by manifest.
+75 http fetch POST 200 https://registry.npmjs.org/-/npm/v1/security/advisories/bulk 64ms
+76 silly audit report {}
+77 http fetch GET 200 https://registry.npmjs.org/yaml/-/yaml-2.8.2.tgz 117ms (cache miss)
+78 silly ADD
+79 silly ADD
+80 silly ADD
+81 silly ADD
+82 silly ADD
+83 silly ADD
+84 silly ADD
+85 silly ADD
+86 silly ADD
+87 silly ADD
+88 silly ADD
+89 silly ADD
+90 silly ADD
+91 silly ADD
+92 silly ADD
+93 silly ADD
+94 silly ADD
+95 silly ADD
+96 silly ADD
+97 silly ADD
+98 silly ADD
+99 silly ADD
+100 silly ADD
+101 silly ADD
+102 silly CHANGE node_modules/yaml
+103 verbose cwd /Users/wband/Projects/tuon-live-transcribe-obsidian
+104 verbose os Darwin 24.6.0
+105 verbose node v22.16.0
+106 verbose npm  v10.9.2
+107 verbose exit 0
+108 info ok

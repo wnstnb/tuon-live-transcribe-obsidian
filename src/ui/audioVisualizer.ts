@@ -3,7 +3,7 @@ export interface AudioVisualizerOptions {
 	barWidth?: number;
 	barGap?: number;
 	sensitivity?: number;
-	scrollSpeedPxPerSec?: number;
+	idleThreshold?: number;
 }
 
 export class AudioVisualizer {
@@ -11,19 +11,14 @@ export class AudioVisualizer {
 	private readonly barWidth: number;
 	private readonly barGap: number;
 	private readonly sensitivity: number;
-	private readonly scrollSpeedPxPerSec: number;
-
-	private audioHistory: number[] = [];
-	private scrollOffset = 0;
-	private lastUpdateTime = 0;
-	private lastHistoryUpdate = 0;
+	private readonly idleThreshold: number;
 
 	constructor(opts: AudioVisualizerOptions) {
 		this.canvas = opts.canvas;
 		this.barWidth = opts.barWidth ?? 3;
 		this.barGap = opts.barGap ?? 1;
 		this.sensitivity = opts.sensitivity ?? 6;
-		this.scrollSpeedPxPerSec = opts.scrollSpeedPxPerSec ?? 12;
+		this.idleThreshold = opts.idleThreshold ?? 0.01;
 	}
 
 	update(data: Uint8Array | null | undefined, isActive: boolean) {
@@ -35,76 +30,34 @@ export class AudioVisualizer {
 
 		const colors = this.getColors();
 		if (!isActive || !data || data.length === 0) {
+			this.resetMotion();
+			this.drawIdle(ctx, width, height, colors.inactive);
+			return;
+		}
+
+		const rms = this.computeRms(data);
+		if (rms < this.idleThreshold) {
+			this.resetMotion();
 			this.drawIdle(ctx, width, height, colors.inactive);
 			return;
 		}
 
 		const totalBarWidth = this.barWidth + this.barGap;
-		const barsNeeded = Math.ceil(width / totalBarWidth) + 8;
-		const numberOfBars = Math.floor(width / totalBarWidth) + 8;
+		const bars = Math.max(1, Math.floor(width / totalBarWidth));
 
-		const now = Date.now();
-		if (this.lastUpdateTime > 0) {
-			const deltaTime = now - this.lastUpdateTime;
-			this.scrollOffset += (deltaTime / 1000) * this.scrollSpeedPxPerSec;
-			const maxOffset = totalBarWidth * barsNeeded;
-			if (this.scrollOffset > maxOffset) {
-				this.scrollOffset = this.scrollOffset % maxOffset;
-			}
-		}
-		this.lastUpdateTime = now;
-
-		if (now - this.lastHistoryUpdate >= 30) {
-			let rms = 0;
-			for (let i = 0; i < data.length; i++) {
-				const value = data[i] ?? 128;
-				const sample = (value - 128) / 128;
-				rms += sample * sample;
-			}
-			rms = Math.sqrt(rms / data.length);
-
-			this.audioHistory.push(rms);
-			if (this.audioHistory.length > 100) {
-				this.audioHistory.shift();
-			}
-			this.lastHistoryUpdate = now;
-		}
-
-		for (let i = 0; i < barsNeeded; i++) {
-			const baseX = width - i * totalBarWidth;
-			const x = baseX - (this.scrollOffset % (barsNeeded * totalBarWidth));
-
-			let finalX = x;
-			if (x < -this.barWidth) {
-				finalX = x + barsNeeded * totalBarWidth;
-			}
-			if (finalX + this.barWidth < 0 || finalX > width) continue;
-
-			let barHeight = 2;
-			if (i < 5) {
-				const dataIndex = Math.floor((i / 5) * data.length);
-				const clampedIndex = Math.min(dataIndex, data.length - 1);
-				const value = data[clampedIndex] ?? 128;
-				const sample = (value - 128) / 128;
-				barHeight = Math.abs(sample) * height * (this.sensitivity * 0.5);
-			} else {
-				const historyIndex = i - 5;
-				if (historyIndex < this.audioHistory.length) {
-					const historicalLevel =
-						this.audioHistory[this.audioHistory.length - 1 - historyIndex] ?? 0;
-					barHeight = historicalLevel * height * this.sensitivity;
-				}
-			}
-
-			barHeight = Math.max(2, Math.min(barHeight, height * 0.6));
-
-			const y = (height - barHeight) / 2;
-			const fadeOpacity = Math.max(0.1, 1 - (i / numberOfBars) * 0.7);
+		for (let i = 0; i < bars; i++) {
+			const dataIndex = Math.floor((i / Math.max(1, bars - 1)) * (data.length - 1));
+			const clampedIndex = Math.max(0, Math.min(dataIndex, data.length - 1));
+			const value = data[clampedIndex] ?? 128;
+			const sample = (value - 128) / 128;
+			const amplitude = Math.min(1, Math.abs(sample) * this.sensitivity);
+			const barHeight = Math.max(2, Math.floor(amplitude * height));
+			const x = i * totalBarWidth;
+			const y = Math.floor((height - barHeight) / 2);
 
 			ctx.fillStyle = colors.active;
-			ctx.globalAlpha = fadeOpacity;
-			ctx.fillRect(finalX, y, this.barWidth, barHeight);
 			ctx.globalAlpha = 1.0;
+			ctx.fillRect(x, y, this.barWidth, barHeight);
 		}
 	}
 
@@ -113,6 +66,20 @@ export class AudioVisualizer {
 		ctx.globalAlpha = 0.3;
 		ctx.fillRect(0, height / 2 - 0.5, width, 1);
 		ctx.globalAlpha = 1.0;
+	}
+
+	private resetMotion() {
+		// No-op in static mode; keep for compatibility.
+	}
+
+	private computeRms(data: Uint8Array): number {
+		let rms = 0;
+		for (let i = 0; i < data.length; i++) {
+			const value = data[i] ?? 128;
+			const sample = (value - 128) / 128;
+			rms += sample * sample;
+		}
+		return Math.sqrt(rms / data.length);
 	}
 
 	private getCanvasSize(ctx: CanvasRenderingContext2D): { width: number; height: number } {

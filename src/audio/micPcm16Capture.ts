@@ -3,6 +3,8 @@ export interface MicCaptureOptions {
 	onPcm16Chunk: (pcm16: ArrayBuffer) => void;
 	/** Size in samples to batch before emitting. 800 samples @ 16kHz = 50ms. */
 	chunkSizeSamples?: number;
+	/** Target sample rate for capture (Hz). */
+	sampleRate?: number;
 	/** Optional time-domain frames for UI visualization. */
 	onAudioFrame?: (data: Uint8Array) => void;
 }
@@ -53,16 +55,17 @@ export async function startMicPcm16Capture(
 	opts: MicCaptureOptions
 ): Promise<MicCaptureHandle> {
 	const chunkSizeSamples = opts.chunkSizeSamples ?? DEFAULT_CHUNK_SIZE_SAMPLES;
+	const sampleRate = opts.sampleRate ?? 16000;
 
 	const stream = await navigator.mediaDevices.getUserMedia({
 		audio: {
 			channelCount: 1,
 			// Requesting 16kHz helps but isn't guaranteed; we force an AudioContext at 16kHz below.
-			sampleRate: 16000,
+			sampleRate,
 		},
 	});
 
-	const audioContext = new AudioContext({ sampleRate: 16000 });
+	const audioContext = new AudioContext({ sampleRate });
 	const source = audioContext.createMediaStreamSource(stream);
 	const analyser = audioContext.createAnalyser();
 	analyser.fftSize = 2048;
