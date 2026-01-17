@@ -1,8 +1,8 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
-import MyPlugin from "./main";
+import TuonScribePlugin from "./main";
 import { buildSystemPrompt, buildUserPrompt } from "./ai/voiceSummaryPrompts";
 
-export interface MyPluginSettings {
+export interface TuonScribeSettings {
 	/** AssemblyAI API key (stored in Obsidian plugin settings). */
 	assemblyAiApiKey: string;
 	/** OpenRouter API key (stored in Obsidian plugin settings). */
@@ -43,7 +43,7 @@ export interface MyPluginSettings {
 	prettifySystemPrompt: string;
 }
 
-export const DEFAULT_SETTINGS: MyPluginSettings = {
+export const DEFAULT_SETTINGS: TuonScribeSettings = {
 	assemblyAiApiKey: "",
 	openRouterApiKey: "",
 	openRouterModel: "openai/gpt-5-mini",
@@ -65,11 +65,11 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	prettifySystemPrompt: buildSystemPrompt("prettify"),
 };
 
-export class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+export class TuonScribeSettingTab extends PluginSettingTab {
+	plugin: TuonScribePlugin;
 	private activeTab: "general" | "advanced" = "general";
 
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: TuonScribePlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}

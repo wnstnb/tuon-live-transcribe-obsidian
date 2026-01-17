@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
+	"name": "tuon-live-transcribe-obsidian",
 	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"description": "Live transcription, scribe blocks, and AI summaries for Obsidian.",
 	"main": "main.js",
 	"type": "module",
 	"scripts": {

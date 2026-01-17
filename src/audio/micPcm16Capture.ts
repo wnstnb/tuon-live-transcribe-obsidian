@@ -57,6 +57,26 @@ export async function startMicPcm16Capture(
 	const chunkSizeSamples = opts.chunkSizeSamples ?? DEFAULT_CHUNK_SIZE_SAMPLES;
 	const sampleRate = opts.sampleRate ?? 16000;
 
+	const hasGetUserMedia =
+		typeof navigator !== "undefined" &&
+		!!navigator.mediaDevices &&
+		typeof navigator.mediaDevices.getUserMedia === "function";
+	if (!hasGetUserMedia) {
+		throw new Error("Microphone capture is not supported in this environment.");
+	}
+
+	const AudioContextCtor =
+		typeof window !== "undefined"
+			? window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext })
+					.webkitAudioContext
+			: undefined;
+	if (!AudioContextCtor) {
+		throw new Error("AudioContext is not available in this environment.");
+	}
+	if (typeof (globalThis as any).AudioWorkletNode === "undefined") {
+		throw new Error("AudioWorklet is not supported on this device.");
+	}
+
 	const stream = await navigator.mediaDevices.getUserMedia({
 		audio: {
 			channelCount: 1,
@@ -65,7 +85,13 @@ export async function startMicPcm16Capture(
 		},
 	});
 
-	const audioContext = new AudioContext({ sampleRate });
+	const audioContext = new AudioContextCtor({ sampleRate });
+	if (!audioContext.audioWorklet || typeof audioContext.audioWorklet.addModule !== "function") {
+		try {
+			await audioContext.close();
+		} catch {}
+		throw new Error("AudioWorklet is not available in this environment.");
+	}
 	const source = audioContext.createMediaStreamSource(stream);
 	const analyser = audioContext.createAnalyser();
 	analyser.fftSize = 2048;

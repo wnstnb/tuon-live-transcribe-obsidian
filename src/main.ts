@@ -1,15 +1,13 @@
 import {
-	App,
 	Editor,
 	MarkdownRenderChild,
 	MarkdownView,
-	Modal,
 	Notice,
 	Plugin,
 	TFile,
 	setIcon,
 } from "obsidian";
-import { DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab } from "./settings";
+import { DEFAULT_SETTINGS, TuonScribeSettingTab, TuonScribeSettings } from "./settings";
 import { openRouterChatCompletion } from "./ai/openrouter";
 import { buildSystemPrompt, buildUserPrompt, NotesAction } from "./ai/voiceSummaryPrompts";
 import { LiveTranscribeService } from "./transcribe/liveTranscribeService";
@@ -34,10 +32,8 @@ import {
 
 const OPENROUTER_APP_TITLE = "Tuon Scribe";
 
-// Remember to rename these classes and interfaces!
-
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class TuonScribePlugin extends Plugin {
+	settings: TuonScribeSettings;
 	private liveTranscribe: LiveTranscribeService | null = null;
 	private statusBarItemEl: HTMLElement | null = null;
 	private widgetEl: HTMLDivElement | null = null;
@@ -250,7 +246,7 @@ export default class MyPlugin extends Plugin {
 		);
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		this.addSettingTab(new TuonScribeSettingTab(this.app, this));
 	}
 
 	onunload() {
@@ -264,7 +260,11 @@ export default class MyPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
+		this.settings = Object.assign(
+			{},
+			DEFAULT_SETTINGS,
+			await this.loadData() as Partial<TuonScribeSettings>
+		);
 	}
 
 	async saveSettings() {
@@ -911,22 +911,6 @@ function stripRedundantSummaryHeading(text: string): string {
 		return rest.join("\n").trim();
 	}
 	return text.trim();
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
 }
 
 function advanceCursor(
