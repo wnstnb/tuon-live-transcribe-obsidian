@@ -95,6 +95,7 @@ export function renderVoiceSummaryBlock(opts: {
 	let copyTimer: number | null = null;
 	let isEditingTitle = false;
 	let titleBlurMode: "save" | "cancel" | null = null;
+	let transcriptWrite = Promise.resolve();
 
 	const container = opts.el.createDiv({ cls: "tuon-voice-block" });
 	const header = container.createDiv({ cls: "tuon-voice-block__header" });
@@ -575,56 +576,67 @@ export function renderVoiceSummaryBlock(opts: {
 		await opts.app.vault.modify(file, next);
 	}
 
+	function enqueueTranscriptWrite(task: () => Promise<void>) {
+		transcriptWrite = transcriptWrite.then(task).catch((err) => {
+			console.error("Failed to update scribe transcript:", err);
+		});
+		return transcriptWrite;
+	}
+
 	async function appendTranscriptMarker(text: string) {
 		const trimmed = text.trim();
 		if (!trimmed) return;
-		const updated = await updateVoiceSummaryBlockInFile(
-			opts.app,
-			opts.sourcePath,
-			data.id,
-			(current) => {
-				const base = current.transcript || "";
-				const prefix = base.trim().length ? "\n\n" : "";
-				return {
-					...current,
-					transcript: `${base}${prefix}${trimmed}\n\n`,
-					updatedAt: new Date().toISOString(),
-				};
+		await enqueueTranscriptWrite(async () => {
+			const updated = await updateVoiceSummaryBlockInFile(
+				opts.app,
+				opts.sourcePath,
+				data.id,
+				(current) => {
+					const base = current.transcript || "";
+					const prefix = base.trim().length ? "\n\n" : "";
+					return {
+						...current,
+						transcript: `${base}${prefix}${trimmed}\n\n`,
+						updatedAt: new Date().toISOString(),
+					};
+				}
+			);
+			if (updated) {
+				data = updated;
+				updateTranscriptView();
+				updateSummaryView();
+				updatePrettyView();
+				updateActionState();
 			}
-		);
-		if (updated) {
-			data = updated;
-			updateTranscriptView();
-			updateSummaryView();
-			updatePrettyView();
-			updateActionState();
-		}
+		});
 	}
 
 	async function appendTranscript(text: string) {
 		const trimmed = text.trim();
 		if (!trimmed) return;
-		const updated = await updateVoiceSummaryBlockInFile(
-			opts.app,
-			opts.sourcePath,
-			data.id,
-			(current) => {
-				const base = current.transcript || "";
-				const spacer = base && !/\s$/.test(base) ? " " : "";
-				return {
-					...current,
-					transcript: `${base}${spacer}${trimmed}`,
-					updatedAt: new Date().toISOString(),
-				};
+		await enqueueTranscriptWrite(async () => {
+			const updated = await updateVoiceSummaryBlockInFile(
+				opts.app,
+				opts.sourcePath,
+				data.id,
+				(current) => {
+					const base = current.transcript || "";
+					const spacer = base && !/\s$/.test(base) ? " " : "";
+					return {
+						...current,
+						transcript: `${base}${spacer}${trimmed}`,
+						updatedAt: new Date().toISOString(),
+					};
+				}
+			);
+			if (updated) {
+				data = updated;
+				updateTranscriptView();
+				updateSummaryView();
+				updatePrettyView();
+				updateActionState();
 			}
-		);
-		if (updated) {
-			data = updated;
-			updateTranscriptView();
-			updateSummaryView();
-			updatePrettyView();
-			updateActionState();
-		}
+		});
 	}
 
 	clearButton.addEventListener("click", async () => {
