@@ -175,6 +175,7 @@ export default class TuonScribePlugin extends Plugin {
 		this.addCommand({
 			id: "tuon-summarize-selection",
 			name: "Tuon: Summarize selection (OpenRouter)",
+			icon: "sparkles",
 			editorCallback: async (editor: Editor) => {
 				await this.runNotesAction(editor, "summary");
 			},
@@ -183,6 +184,7 @@ export default class TuonScribePlugin extends Plugin {
 		this.addCommand({
 			id: "tuon-prettify-selection",
 			name: "Tuon: Prettify selection (OpenRouter)",
+			icon: "wand-2",
 			editorCallback: async (editor: Editor) => {
 				await this.runNotesAction(editor, "prettify");
 			},
@@ -559,13 +561,57 @@ export default class TuonScribePlugin extends Plugin {
 		this.updateWidgetSize();
 	}
 
+	private isMobileLayout() {
+		return (
+			document.body.classList.contains("is-mobile") ||
+			document.documentElement.classList.contains("is-mobile")
+		);
+	}
+
+	private getBottomOverlayInset() {
+		if (!this.widgetEl || !this.isMobileLayout()) return 0;
+		const host = this.widgetEl.parentElement;
+		if (!host) return 0;
+		const viewportHeight =
+			window.visualViewport?.height ??
+			document.documentElement.clientHeight ??
+			window.innerHeight;
+		const viewportWidth =
+			window.visualViewport?.width ??
+			document.documentElement.clientWidth ??
+			window.innerWidth;
+		if (!viewportHeight || !viewportWidth) return 0;
+
+		const sampleY = Math.max(0, Math.floor(viewportHeight - 1));
+		const sampleRatios = [0.2, 0.5, 0.8];
+		let maxInset = 0;
+
+		for (const ratio of sampleRatios) {
+			const x = Math.min(
+				Math.max(0, Math.floor(viewportWidth * ratio)),
+				Math.max(0, Math.floor(viewportWidth - 1))
+			);
+			const el = document.elementFromPoint(x, sampleY) as HTMLElement | null;
+			if (!el) continue;
+			if (this.widgetEl.contains(el) || host.contains(el)) continue;
+			const rect = el.getBoundingClientRect();
+			if (rect.height < 24) continue;
+			if (rect.bottom < viewportHeight - 1) continue;
+			const inset = Math.max(0, viewportHeight - rect.top);
+			if (inset > maxInset) maxInset = inset;
+		}
+
+		return Math.ceil(maxInset);
+	}
+
 	private updateWidgetOffset() {
 		if (!this.widgetEl) return;
 		const statusBar = document.querySelector(".status-bar") as HTMLElement | null;
 		const statusBarHeight = statusBar?.getBoundingClientRect().height ?? 0;
 		const gutter = 8;
 		const minBottom = 16;
-		const bottom = Math.max(minBottom, Math.ceil(statusBarHeight + gutter));
+		const overlayInset = this.getBottomOverlayInset();
+		const bottom = Math.max(minBottom, Math.ceil(statusBarHeight + gutter + overlayInset));
 		this.widgetEl.style.bottom = `${bottom}px`;
 		this.updateWidgetSize();
 	}

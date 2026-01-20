@@ -34,6 +34,14 @@ Plugin id: `tuon-scribe`.
 
 Use the "Tuon: Insert scribe block" command to insert a `tuon-voice` code block. The block UI lets you record, review transcripts, and generate summary or prettified text.
 
+## Mobile toolbar actions
+
+Obsidian does not currently allow plugins to add items to the mobile formatting toolbar by default. To access summarization/prettify on mobile, add the commands to the toolbar:
+
+1. Open **Settings → Mobile**.
+2. Select **Configure toolbar**.
+3. Add **Tuon: Summarize selection (OpenRouter)** and **Tuon: Prettify selection (OpenRouter)**.
+
 ## Privacy and external services
 
 - Live transcription streams microphone audio to AssemblyAI.

@@ -24,12 +24,14 @@ Voice summary block styles.
 	align-items: center;
 	justify-content: space-between;
 	gap: 10px;
+	flex-wrap: wrap;
 }
 
 .tuon-voice-block__title-wrap {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
+	min-width: 0;
 }
 
 .tuon-voice-block__title {
@@ -37,6 +39,9 @@ Voice summary block styles.
 	font-size: 14px;
 	cursor: text;
 	color: var(--text-normal);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .tuon-voice-block__title:hover {
@@ -84,6 +89,7 @@ Voice summary block styles.
 	display: flex;
 	align-items: center;
 	gap: 8px;
+	flex-wrap: wrap;
 }
 
 .tuon-voice-block__visualizer {
@@ -337,12 +343,52 @@ Voice summary block styles.
 }
 
 @media (max-width: 560px) {
+	.tuon-voice-block {
+		padding: 10px;
+		gap: 8px;
+	}
+
+	.tuon-voice-block__header-row {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 8px;
+	}
+
+	.tuon-voice-block__visualizer-wrap {
+		width: 100%;
+	}
+
+	.tuon-voice-block__visualizer {
+		width: 100%;
+	}
+
+	.tuon-voice-block__actions {
+		width: 100%;
+		justify-content: flex-start;
+	}
+
 	.tuon-voice-block__actions .tuon-voice-button__label {
 		display: none;
 	}
 
 	.tuon-voice-block__actions .tuon-voice-button {
 		padding: 4px 6px;
+	}
+
+	.tuon-voice-block__tabs-row {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.tuon-voice-block__tabs {
+		width: 100%;
+	}
+
+	.tuon-voice-block__tabs-actions {
+		width: 100%;
+		margin-left: 0;
+		padding-bottom: 0;
+		justify-content: flex-start;
 	}
 }
 
@@ -356,18 +402,68 @@ Voice summary block styles.
 	}
 }
 
+.is-mobile .tuon-voice-block__actions .tuon-voice-button__label {
+	display: none;
+}
+
+.is-mobile .tuon-voice-block__actions .tuon-voice-button {
+	padding: 4px 6px;
+}
+
+.is-mobile .tuon-voice-block {
+	padding: 10px;
+	gap: 8px;
+}
+
+.is-mobile .tuon-voice-block__header-row {
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 8px;
+}
+
+.is-mobile .tuon-voice-block__visualizer-wrap {
+	width: 100%;
+}
+
+.is-mobile .tuon-voice-block__visualizer {
+	width: 100%;
+}
+
+.is-mobile .tuon-voice-block__actions {
+	width: 100%;
+	justify-content: flex-start;
+}
+
+.is-mobile .tuon-voice-block__tabs-row {
+	flex-direction: column;
+	align-items: flex-start;
+}
+
+.is-mobile .tuon-voice-block__tabs {
+	width: 100%;
+}
+
+.is-mobile .tuon-voice-block__tabs-actions {
+	width: 100%;
+	margin-left: 0;
+	padding-bottom: 0;
+	justify-content: flex-start;
+}
+
 .tuon-voice-block__tabs-row {
 	display: flex;
 	align-items: flex-end;
 	justify-content: space-between;
 	gap: 12px;
 	border-bottom: 1px solid var(--background-modifier-border);
+	flex-wrap: wrap;
 }
 
 .tuon-voice-block__tabs {
 	display: flex;
 	gap: 6px;
 	align-items: flex-end;
+	flex-wrap: wrap;
 }
 
 .tuon-voice-block__tabs button {
@@ -426,6 +522,12 @@ Voice summary block styles.
 	color: var(--text-normal);
 	max-height: 600px;
 	overflow: auto;
+}
+
+.tuon-voice-block .tuon-voice-block__readonly.markdown-rendered,
+.tuon-voice-block .tuon-voice-block__summary.markdown-rendered {
+	padding: 16px 18px !important;
+	box-sizing: border-box;
 }
 
 .tuon-voice-block__panel-actions {
