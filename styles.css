@@ -139,6 +139,55 @@ Voice summary block styles.
 	align-items: stretch;
 }
 
+.tuon-voice-mode-select {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: 11px;
+	padding: 4px 6px;
+	height: 28px;
+}
+
+.tuon-voice-mode-select:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+.tuon-voice-mode-button {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: 11px;
+	padding: 4px 8px;
+	height: 28px;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	cursor: pointer;
+	width: auto;
+	white-space: nowrap;
+}
+
+.tuon-voice-mode-button:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+.tuon-voice-mode-button__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 14px;
+	height: 14px;
+}
+
+.tuon-voice-mode-button__icon svg {
+	width: 14px;
+	height: 14px;
+}
+
 .tuon-voice-button-group .tuon-voice-button {
 	border-radius: 8px;
 }
@@ -309,6 +358,26 @@ Voice summary block styles.
 	color: white;
 }
 
+.tuon-voice-record-button.is-transcribing {
+	background: var(--background-modifier-hover);
+	border-color: var(--background-modifier-border);
+	color: var(--text-muted);
+}
+
+.tuon-live-transcribe-widget__mode-select {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: 11px;
+	padding: 4px 6px;
+	height: 28px;
+}
+
+.tuon-live-transcribe-widget__mode-select:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
 .tuon-voice-record-button__icon {
 	display: inline-flex;
 	align-items: center;
@@ -457,6 +526,22 @@ Voice summary block styles.
 	gap: 12px;
 	border-bottom: 1px solid var(--background-modifier-border);
 	flex-wrap: wrap;
+}
+
+.tuon-voice-block__player-row {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 6px 0;
+}
+
+.tuon-voice-block__player {
+	width: 100%;
+}
+
+.tuon-voice-block__player-hint {
+	font-size: 11px;
+	color: var(--text-muted);
 }
 
 .tuon-voice-block__tabs {

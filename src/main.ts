@@ -2,6 +2,7 @@ import {
 	Editor,
 	MarkdownRenderChild,
 	MarkdownView,
+	Menu,
 	Notice,
 	Plugin,
 	TFile,
@@ -11,6 +12,8 @@ import { DEFAULT_SETTINGS, TuonScribeSettingTab, TuonScribeSettings } from "./se
 import { openRouterChatCompletion } from "./ai/openrouter";
 import { buildSystemPrompt, buildUserPrompt, NotesAction } from "./ai/voiceSummaryPrompts";
 import { LiveTranscribeService } from "./transcribe/liveTranscribeService";
+import { RecordedTranscribeService } from "./transcribe/recordedTranscribeService";
+import type { RecordedTranscriptionResult } from "./transcribe/recordedTranscribeService";
 import {
 	buildRecordingStartMarker,
 	buildRecordingStopMarker,
@@ -22,6 +25,7 @@ import {
 	buildVoiceSummaryFence,
 	createVoiceSummaryBlockData,
 	VOICE_SUMMARY_BLOCK_TYPE,
+	RecordingMode,
 } from "./voiceSummary/voiceSummaryBlock";
 import { renderVoiceSummaryBlock } from "./ui/voiceSummaryBlockRenderer";
 import {
@@ -29,12 +33,23 @@ import {
 	testAssemblyAiApiKey,
 	testOpenRouterApiKey,
 } from "./diagnostics/apiKeyDiagnostics";
+import { AudioFilePickerModal } from "./ui/audioFilePickerModal";
+import { isAudioFile } from "./audio/audioFileUtils";
 
 const OPENROUTER_APP_TITLE = "Tuon Scribe";
+
+type RecordingPhase = "recording" | "transcribing" | null;
+type RecordingState = {
+	running: boolean;
+	blockId: string | null;
+	mode: RecordingMode | null;
+	phase: RecordingPhase;
+};
 
 export default class TuonScribePlugin extends Plugin {
 	settings: TuonScribeSettings;
 	private liveTranscribe: LiveTranscribeService | null = null;
+	private recordedTranscribe: RecordedTranscribeService | null = null;
 	private statusBarItemEl: HTMLElement | null = null;
 	private widgetEl: HTMLDivElement | null = null;
 	private widgetButtonEl: HTMLButtonElement | null = null;
@@ -47,22 +62,27 @@ export default class TuonScribePlugin extends Plugin {
 	private widgetRunning = false;
 	private widgetLastVisualizerDraw = 0;
 	private widgetRibbonEl: HTMLElement | null = null;
+	private widgetModeSelectEl: HTMLSelectElement | null = null;
+	private widgetRecordingMode: RecordingMode = "stream";
 	private audioVisualizer: AudioVisualizer | null = null;
 	private readonly widgetMinWidth = 220;
 	private readonly widgetMaxWidth = 390;
-	private recordingBlockId: string | null = null;
+	private streamRecordingBlockId: string | null = null;
+	private fileRecordingBlockId: string | null = null;
+	private recordedTranscribeSourcePath: string | null = null;
 	private recordingListeners = new Set<
-		(state: { running: boolean; blockId: string | null }) => void
+		(state: RecordingState) => void
 	>();
 	private transcriptPreviewListeners = new Set<
-		(preview: string, state: { running: boolean; blockId: string | null }) => void
+		(preview: string, state: RecordingState) => void
 	>();
 	private audioFrameListeners = new Set<
-		(data: Uint8Array | null, state: { running: boolean; blockId: string | null }) => void
+		(data: Uint8Array | null, state: RecordingState) => void
 	>();
 
 	async onload() {
 		await this.loadSettings();
+		this.widgetRecordingMode = "stream";
 
 		this.statusBarItemEl = this.addStatusBarItem();
 		this.statusBarItemEl.setText("");
@@ -81,8 +101,8 @@ export default class TuonScribePlugin extends Plugin {
 			}),
 			onStatusText: (t) => this.updateStatusText(t),
 			onRunningChange: (running) => {
-				const wasBlockRecording = Boolean(this.recordingBlockId);
-				this.updateWidgetState(running);
+				const wasBlockRecording = Boolean(this.streamRecordingBlockId);
+				this.updateWidgetState();
 				if (running) {
 					if (!wasBlockRecording) {
 						this.handleEditorRecordingStart();
@@ -91,13 +111,29 @@ export default class TuonScribePlugin extends Plugin {
 					if (!wasBlockRecording) {
 						this.handleEditorRecordingStop();
 					}
-					this.recordingBlockId = null;
+					this.streamRecordingBlockId = null;
 				}
 				this.notifyRecordingChange();
 				if (!running) {
 					this.notifyAudioFrame(null);
 				}
 			},
+			onAudioFrame: (data) => {
+				this.updateVisualizer(data);
+				this.notifyAudioFrame(data);
+			},
+		});
+
+		this.recordedTranscribe = new RecordedTranscribeService({
+			app: this.app,
+			getAssemblyAiApiKey: () => this.settings.assemblyAiApiKey,
+			getFileTranscribeConfig: () => ({
+				speechModels: ["universal"],
+				speakerLabels: true,
+				punctuate: true,
+				formatText: true,
+			}),
+			onStatusText: (text) => this.updateRecordedStatusText(text),
 			onAudioFrame: (data) => {
 				this.updateVisualizer(data);
 				this.notifyAudioFrame(data);
@@ -173,6 +209,36 @@ export default class TuonScribePlugin extends Plugin {
 		});
 
 		this.addCommand({
+			id: "tuon-recorded-transcription-toggle",
+			name: "Tuon: Toggle recorded audio transcription",
+			callback: () => {
+				new Notice("Recorded audio is available inside scribe blocks only.");
+			},
+		});
+
+		this.addCommand({
+			id: "tuon-recorded-transcription-start",
+			name: "Tuon: Start recorded audio transcription",
+			callback: () => {
+				new Notice("Recorded audio is available inside scribe blocks only.");
+			},
+		});
+
+		this.addCommand({
+			id: "tuon-recorded-transcription-stop",
+			name: "Tuon: Stop recorded audio transcription",
+			callback: () => {
+				new Notice("Recorded audio is available inside scribe blocks only.");
+			},
+		});
+
+		this.addCommand({
+			id: "tuon-transcribe-audio-file",
+			name: "Tuon: Transcribe audio file (AssemblyAI)",
+			callback: () => void this.transcribeAudioFileFromVault(),
+		});
+
+		this.addCommand({
 			id: "tuon-summarize-selection",
 			name: "Tuon: Summarize selection (OpenRouter)",
 			icon: "sparkles",
@@ -233,7 +299,7 @@ export default class TuonScribePlugin extends Plugin {
 							scribeBlockTimestamps: this.settings.scribeBlockTimestamps,
 						}),
 						startRecordingForBlock: (opts) => this.startRecordingForBlock(opts),
-						stopRecording: () => this.stopRecording(),
+						stopRecordingForBlock: (opts) => this.stopRecordingForBlock(opts),
 						summarizeTranscript: (transcript) =>
 							this.summarizeTranscript(transcript),
 						prettifyTranscript: (transcript) =>
@@ -254,6 +320,9 @@ export default class TuonScribePlugin extends Plugin {
 	onunload() {
 		try {
 			this.liveTranscribe?.stop();
+		} catch {}
+		try {
+			this.recordedTranscribe?.cancelRecording();
 		} catch {}
 		this.statusBarItemEl?.setText("");
 		this.destroyLiveWidget();
@@ -276,10 +345,23 @@ export default class TuonScribePlugin extends Plugin {
 	private updateStatusText(text: string) {
 		const preview = (text || "").trim();
 		this.notifyTranscriptPreview(preview);
-		if (this.recordingBlockId) return;
+		if (this.streamRecordingBlockId || this.fileRecordingBlockId) return;
 		if (this.widgetTranscriptEl) {
 			this.widgetTranscriptEl.textContent = preview || "Say something to begin…";
 			this.scrollWidgetTranscriptToBottom();
+		}
+	}
+
+	private updateRecordedStatusText(text: string) {
+		if (this.liveTranscribe?.isRunning) return;
+		const trimmed = (text || "").trim();
+		this.statusBarItemEl?.setText(trimmed);
+		if (this.widgetTranscriptEl && !this.streamRecordingBlockId && !this.fileRecordingBlockId) {
+			if (this.widgetRecordingMode === "file") {
+				this.widgetTranscriptEl.textContent =
+					trimmed || "Record audio to begin…";
+				this.scrollWidgetTranscriptToBottom();
+			}
 		}
 	}
 
@@ -352,17 +434,32 @@ export default class TuonScribePlugin extends Plugin {
 		});
 	}
 
-	private updateWidgetState(running: boolean) {
-		const widgetRunning = running && !this.recordingBlockId;
+	private updateWidgetState() {
+		const state = this.getRecordingState();
+		const isRecording =
+			(this.liveTranscribe?.isRunning ?? false) ||
+			(this.recordedTranscribe?.isRecording ?? false);
+		const fileBusy = this.recordedTranscribe?.isTranscribing ?? false;
+		const widgetRunning = isRecording && !state.blockId;
+		const isBlocked = (isRecording || fileBusy) && !!state.blockId;
 		this.widgetRunning = widgetRunning;
+		if (this.widgetModeSelectEl) {
+			this.widgetModeSelectEl.value = this.widgetRecordingMode;
+			this.widgetModeSelectEl.disabled = state.running || fileBusy;
+		}
 		if (this.widgetButtonEl) {
 			this.updateWidgetButtonIcon(widgetRunning);
+			this.widgetButtonEl.disabled = isBlocked || fileBusy;
 			this.widgetButtonEl.style.background = widgetRunning
 				? "var(--color-red)"
 				: "var(--background-secondary)";
 			this.widgetButtonEl.style.color = widgetRunning ? "white" : "var(--text-normal)";
 		}
-		this.statusBarItemEl?.setText(running ? "Listening…" : "");
+		if (this.liveTranscribe?.isRunning) {
+			this.statusBarItemEl?.setText("Listening…");
+		} else if (!this.recordedTranscribe?.isRecording && !this.recordedTranscribe?.isTranscribing) {
+			this.statusBarItemEl?.setText("");
+		}
 		if (this.widgetEl) {
 			this.widgetEl.dataset.running = widgetRunning ? "true" : "false";
 		}
@@ -371,6 +468,13 @@ export default class TuonScribePlugin extends Plugin {
 		} else {
 			this.stopWidgetTimer();
 			this.audioVisualizer?.update(null, false);
+			if (this.widgetTranscriptEl && !state.running && !fileBusy) {
+				const placeholder =
+					this.widgetRecordingMode === "file"
+						? "Record audio to begin…"
+						: "Say something to begin…";
+				this.widgetTranscriptEl.textContent = placeholder;
+			}
 		}
 	}
 
@@ -448,6 +552,11 @@ export default class TuonScribePlugin extends Plugin {
 		visualizerWrap.appendChild(canvas);
 		visualizerWrap.appendChild(timer);
 
+		const controls = document.createElement("div");
+		controls.style.display = "flex";
+		controls.style.alignItems = "center";
+		controls.style.gap = "6px";
+
 		const button = document.createElement("button");
 		button.type = "button";
 		button.style.fontSize = "12px";
@@ -464,15 +573,17 @@ export default class TuonScribePlugin extends Plugin {
 		button.style.justifyContent = "center";
 
 		this.registerDomEvent(button, "click", () => {
-			if (this.recordingBlockId) {
+			const state = this.getRecordingState();
+			if (state.running && state.blockId) {
 				new Notice("Recording is active in a scribe block.");
 				return;
 			}
-			this.liveTranscribe?.toggle();
+			void this.toggleWidgetRecording();
 		});
 
 		header.appendChild(visualizerWrap);
-		header.appendChild(button);
+		controls.appendChild(button);
+		header.appendChild(controls);
 
 		const transcript = document.createElement("div");
 		transcript.className = "tuon-live-transcribe-widget__transcript";
@@ -511,6 +622,7 @@ export default class TuonScribePlugin extends Plugin {
 
 		this.widgetEl = container;
 		this.widgetButtonEl = button;
+		this.widgetModeSelectEl = null;
 		this.widgetTranscriptEl = transcript;
 		this.widgetVisualizerCanvasEl = canvas;
 		this.widgetTimerEl = timer;
@@ -534,6 +646,7 @@ export default class TuonScribePlugin extends Plugin {
 		}
 		this.widgetEl = null;
 		this.widgetButtonEl = null;
+		this.widgetModeSelectEl = null;
 		this.widgetTranscriptEl = null;
 		this.widgetVisualizerCanvasEl = null;
 		this.widgetTimerEl = null;
@@ -664,7 +777,7 @@ export default class TuonScribePlugin extends Plugin {
 		}
 	}
 
-	private updateVisualizer(data: Uint8Array) {
+	private updateVisualizer(data: Uint8Array | null) {
 		if (!this.audioVisualizer) return;
 		const now = Date.now();
 		if (now - this.widgetLastVisualizerDraw < 33) return; // ~30fps
@@ -780,20 +893,42 @@ export default class TuonScribePlugin extends Plugin {
 
 	private insertVoiceSummaryBlock(editor: Editor) {
 		const data = createVoiceSummaryBlockData();
+		data.recordingMode = this.settings.recordingModeDefault ?? "stream";
 		const fence = buildVoiceSummaryFence(data);
 		const cursor = editor.getCursor();
 		editor.replaceRange(`${fence}\n\n`, cursor);
 	}
 
-	private getRecordingState(): { running: boolean; blockId: string | null } {
-		return {
-			running: this.liveTranscribe?.isRunning ?? false,
-			blockId: this.recordingBlockId,
-		};
+	private getRecordingState(): RecordingState {
+		if (this.liveTranscribe?.isRunning) {
+			return {
+				running: true,
+				blockId: this.streamRecordingBlockId,
+				mode: "stream",
+				phase: "recording",
+			};
+		}
+		if (this.recordedTranscribe?.isRecording) {
+			return {
+				running: true,
+				blockId: this.fileRecordingBlockId,
+				mode: "file",
+				phase: "recording",
+			};
+		}
+		if (this.recordedTranscribe?.isTranscribing) {
+			return {
+				running: true,
+				blockId: this.fileRecordingBlockId,
+				mode: "file",
+				phase: "transcribing",
+			};
+		}
+		return { running: false, blockId: null, mode: null, phase: null };
 	}
 
 	private onRecordingChange(
-		handler: (state: { running: boolean; blockId: string | null }) => void
+		handler: (state: RecordingState) => void
 	): () => void {
 		this.recordingListeners.add(handler);
 		return () => this.recordingListeners.delete(handler);
@@ -801,6 +936,7 @@ export default class TuonScribePlugin extends Plugin {
 
 	private notifyRecordingChange() {
 		const state = this.getRecordingState();
+		this.updateWidgetState();
 		for (const handler of this.recordingListeners) {
 			handler(state);
 		}
@@ -809,7 +945,7 @@ export default class TuonScribePlugin extends Plugin {
 	private onAudioFrame(
 		handler: (
 			data: Uint8Array | null,
-			state: { running: boolean; blockId: string | null }
+			state: RecordingState
 		) => void
 	): () => void {
 		this.audioFrameListeners.add(handler);
@@ -824,7 +960,7 @@ export default class TuonScribePlugin extends Plugin {
 	}
 
 	private onTranscriptPreview(
-		handler: (preview: string, state: { running: boolean; blockId: string | null }) => void
+		handler: (preview: string, state: RecordingState) => void
 	): () => void {
 		this.transcriptPreviewListeners.add(handler);
 		return () => this.transcriptPreviewListeners.delete(handler);
@@ -840,13 +976,21 @@ export default class TuonScribePlugin extends Plugin {
 	private async startRecordingForBlock(opts: {
 		blockId: string;
 		sourcePath: string;
+		mode: RecordingMode;
 		onFinalText: (text: string) => void;
 		onPartialText?: (text: string) => void;
 		onPreviewText?: (text: string) => void;
 	}): Promise<boolean> {
+		if (opts.mode === "file") {
+			return this.startFileRecordingForBlock(opts);
+		}
 		if (!this.liveTranscribe) return false;
+		if (this.recordedTranscribe?.isRecording || this.recordedTranscribe?.isTranscribing) {
+			new Notice("Recorded transcription is already running.");
+			return false;
+		}
 		if (this.liveTranscribe.isRunning) {
-			const active = this.recordingBlockId;
+			const active = this.streamRecordingBlockId;
 			if (active && active !== opts.blockId) {
 				new Notice("Another scribe block is recording.");
 				return false;
@@ -856,23 +1000,265 @@ export default class TuonScribePlugin extends Plugin {
 				return false;
 			}
 		}
-		this.recordingBlockId = opts.blockId;
+		this.streamRecordingBlockId = opts.blockId;
 		await this.liveTranscribe.start({
 			onFinalText: opts.onFinalText,
 			onPartialText: opts.onPartialText,
 			onPreviewText: opts.onPreviewText,
 		});
 		if (!this.liveTranscribe.isRunning) {
-			this.recordingBlockId = null;
+			this.streamRecordingBlockId = null;
 		}
 		this.notifyRecordingChange();
 		return this.liveTranscribe.isRunning;
 	}
 
-	private stopRecording() {
+	private async startFileRecordingForBlock(opts: {
+		blockId: string;
+		sourcePath: string;
+	}): Promise<boolean> {
+		if (!this.recordedTranscribe) return false;
+		if (this.liveTranscribe?.isRunning) {
+			new Notice("Live transcription is running. Stop it before recording audio.");
+			return false;
+		}
+		if (this.recordedTranscribe.isRecording || this.recordedTranscribe.isTranscribing) {
+			const active = this.fileRecordingBlockId;
+			if (active && active !== opts.blockId) {
+				new Notice("Another scribe block is recording.");
+				return false;
+			}
+			if (!active) {
+				new Notice("Recorded transcription is already running.");
+				return false;
+			}
+		}
+		this.fileRecordingBlockId = opts.blockId;
+		try {
+			await this.recordedTranscribe.startRecording();
+			this.notifyRecordingChange();
+			this.notifyAudioFrame(null);
+			return this.recordedTranscribe.isRecording;
+		} catch (err) {
+			this.fileRecordingBlockId = null;
+			this.notifyRecordingChange();
+			const msg = err instanceof Error ? err.message : String(err);
+			new Notice(`Recording failed: ${msg}`);
+			return false;
+		}
+	}
+
+	private stopStreamRecording() {
 		this.liveTranscribe?.stop();
-		this.recordingBlockId = null;
+		this.streamRecordingBlockId = null;
 		this.notifyRecordingChange();
+	}
+
+	private async stopFileRecordingForBlock(opts: {
+		blockId: string;
+		sourcePath: string;
+		audioPath?: string;
+	}): Promise<RecordedTranscriptionResult | null> {
+		if (!this.recordedTranscribe?.isRecording) {
+			new Notice("No recorded audio is running.");
+			return null;
+		}
+		if (this.fileRecordingBlockId && this.fileRecordingBlockId !== opts.blockId) {
+			new Notice("Another scribe block is recording.");
+			return null;
+		}
+		try {
+			const transcribePromise = this.recordedTranscribe.stopAndTranscribe({
+				sourcePath: opts.sourcePath,
+				existingAudioPath: opts.audioPath,
+			});
+			this.notifyRecordingChange();
+			const result = await transcribePromise;
+			this.fileRecordingBlockId = null;
+			this.notifyRecordingChange();
+			return result;
+		} catch (err) {
+			this.fileRecordingBlockId = null;
+			this.notifyRecordingChange();
+			const msg = err instanceof Error ? err.message : String(err);
+			new Notice(`Recorded transcription failed: ${msg}`);
+			return null;
+		}
+	}
+
+	private async stopRecordingForBlock(opts: {
+		blockId: string;
+		sourcePath: string;
+		mode: RecordingMode;
+		audioPath?: string;
+	}): Promise<RecordedTranscriptionResult | null> {
+		if (opts.mode === "file") {
+			return this.stopFileRecordingForBlock(opts);
+		}
+		this.stopStreamRecording();
+		return null;
+	}
+
+	private async toggleWidgetRecording() {
+		if (this.widgetRecordingMode === "stream") {
+			if (this.recordedTranscribe?.isRecording || this.recordedTranscribe?.isTranscribing) {
+				new Notice("Recorded transcription is already running.");
+				return;
+			}
+			this.liveTranscribe?.toggle();
+			return;
+		}
+		await this.toggleRecordedTranscription();
+	}
+
+	private async toggleRecordedTranscription() {
+		if (this.recordedTranscribe?.isRecording) {
+			await this.stopRecordedTranscription();
+		} else {
+			await this.startRecordedTranscription();
+		}
+	}
+
+	private async startRecordedTranscription() {
+		if (!this.recordedTranscribe) return;
+		if (this.liveTranscribe?.isRunning) {
+			new Notice("Live transcription is running. Stop it before recording audio.");
+			return;
+		}
+		if (this.recordedTranscribe.isRecording) {
+			new Notice("Recorded audio is already running.");
+			return;
+		}
+		if (this.recordedTranscribe.isTranscribing) {
+			new Notice("Recorded transcription is already running.");
+			return;
+		}
+		this.recordedTranscribeSourcePath = this.app.workspace.getActiveFile()?.path ?? null;
+		try {
+			await this.recordedTranscribe.startRecording();
+			this.notifyRecordingChange();
+			new Notice("Recording audio file… run the stop command to finish.");
+		} catch (err) {
+			this.recordedTranscribeSourcePath = null;
+			const msg = err instanceof Error ? err.message : String(err);
+			new Notice(`Recording failed: ${msg}`);
+		}
+	}
+
+	private async stopRecordedTranscription() {
+		if (!this.recordedTranscribe) return;
+		if (!this.recordedTranscribe.isRecording) {
+			new Notice("No recorded audio is running.");
+			return;
+		}
+		const sourcePath = this.recordedTranscribeSourcePath ?? this.app.workspace.getActiveFile()?.path;
+		this.recordedTranscribeSourcePath = null;
+		try {
+			const transcribePromise = this.recordedTranscribe.stopAndTranscribe({
+				sourcePath: sourcePath ?? undefined,
+			});
+			this.notifyRecordingChange();
+			const result = await transcribePromise;
+			await this.insertRecordedTranscript(result);
+			this.notifyRecordingChange();
+			new Notice("Recorded transcription complete.");
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			this.notifyRecordingChange();
+			new Notice(`Recorded transcription failed: ${msg}`);
+		}
+	}
+
+	private async transcribeAudioFileFromVault() {
+		if (!this.recordedTranscribe) return;
+		if (this.liveTranscribe?.isRunning) {
+			new Notice("Live transcription is running. Stop it before transcribing audio files.");
+			return;
+		}
+		if (this.recordedTranscribe.isRecording || this.recordedTranscribe.isTranscribing) {
+			new Notice("Recorded transcription is already running.");
+			return;
+		}
+		const files = this.app.vault.getFiles().filter(isAudioFile);
+		if (files.length === 0) {
+			new Notice("No audio files found in this vault.");
+			return;
+		}
+		const modal = new AudioFilePickerModal(this.app, {
+			onChoose: (file) => {
+				void this.transcribeSelectedAudioFile(file);
+			},
+		});
+		modal.open();
+	}
+
+	private async transcribeSelectedAudioFile(file: TFile) {
+		if (!this.recordedTranscribe) return;
+		try {
+			const transcribePromise = this.recordedTranscribe.transcribeExistingFile(file, {
+				sourcePath: this.app.workspace.getActiveFile()?.path ?? undefined,
+			});
+			this.notifyRecordingChange();
+			const result = await transcribePromise;
+			await this.insertRecordedTranscript(result);
+			this.notifyRecordingChange();
+			new Notice(`Audio file transcribed: ${file.basename}`);
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			this.notifyRecordingChange();
+			new Notice(`Audio transcription failed: ${msg}`);
+		}
+	}
+
+	private async insertRecordedTranscript(result: RecordedTranscriptionResult) {
+		const transcript = result.text.trim();
+		const sourcePath = this.app.workspace.getActiveFile()?.path ?? result.audioPath;
+		const link = this.app.fileManager.generateMarkdownLink(
+			result.audioFile,
+			sourcePath,
+			undefined,
+			""
+		);
+		const embed = link.startsWith("!") ? link : `!${link}`;
+		const parts = transcript ? [embed, transcript] : [embed];
+		const payload = parts.join("\n\n");
+
+		const editor = this.getActiveEditor();
+		if (editor) {
+			const cursor = editor.getCursor();
+			const prefix = cursor.ch === 0 ? "" : "\n\n";
+			const insertion = `${prefix}${payload}\n`;
+			editor.replaceRange(insertion, cursor);
+			editor.setCursor(advanceCursor(cursor, insertion));
+			return;
+		}
+
+		const copied = await this.copyToClipboard(payload);
+		if (copied) {
+			new Notice("No active editor. Transcript copied to clipboard.");
+		} else {
+			new Notice("No active editor to insert transcript.");
+		}
+	}
+
+	private async copyToClipboard(text: string): Promise<boolean> {
+		try {
+			if (navigator.clipboard?.writeText) {
+				await navigator.clipboard.writeText(text);
+				return true;
+			}
+			const area = document.createElement("textarea");
+			area.value = text;
+			area.style.position = "fixed";
+			area.style.opacity = "0";
+			document.body.appendChild(area);
+			area.select();
+			document.execCommand("copy");
+			area.remove();
+			return true;
+		} catch {
+			return false;
+		}
 	}
 
 	private async summarizeTranscript(

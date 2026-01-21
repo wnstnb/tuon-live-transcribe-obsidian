@@ -23,6 +23,8 @@ export interface TuonScribeSettings {
 	scribeBlockTimestamps: boolean;
 	/** Add start/stop timestamps in editor live transcription. */
 	editorTranscriptionTimestamps: boolean;
+	/** Default recording mode for new scribe blocks and widget. */
+	recordingModeDefault: "stream" | "file";
 	/** AssemblyAI sample rate for streaming (Hz). */
 	assemblyAiSampleRate: number;
 	/** PCM16 chunk size in samples. */
@@ -54,6 +56,7 @@ export const DEFAULT_SETTINGS: TuonScribeSettings = {
 	autoSwitchToTranscript: true,
 	scribeBlockTimestamps: true,
 	editorTranscriptionTimestamps: false,
+	recordingModeDefault: "stream",
 	assemblyAiSampleRate: 16000,
 	assemblyAiChunkSizeSamples: 800,
 	assemblyAiEncoding: "pcm_s16le",
@@ -215,6 +218,22 @@ export class TuonScribeSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.autoSwitchToTranscript)
 					.onChange(async (value) => {
 						this.plugin.settings.autoSwitchToTranscript = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		containerEl.createEl("h4", { text: "Scribe block" });
+
+		new Setting(containerEl)
+			.setName("Default recording mode")
+			.setDesc("Choose the default mode for new scribe blocks.")
+			.addDropdown((dropdown) =>
+				dropdown
+					.addOption("stream", "Stream")
+					.addOption("file", "File")
+					.setValue(this.plugin.settings.recordingModeDefault ?? "stream")
+					.onChange(async (value) => {
+						this.plugin.settings.recordingModeDefault = value === "file" ? "file" : "stream";
 						await this.plugin.saveSettings();
 					})
 			);

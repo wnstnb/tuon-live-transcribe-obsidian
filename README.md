@@ -5,6 +5,7 @@ Tuon Scribe brings live transcription and AI-assisted notes into Obsidian. Strea
 ## Features
 
 - Live transcription with AssemblyAI realtime streaming.
+- Recorded audio transcription that saves an attachment and uploads to AssemblyAI.
 - Floating live widget and status updates.
 - Scribe block with transcript, summary, and prettified text.
 - Summarize or prettify selections with OpenRouter.
@@ -16,6 +17,10 @@ Tuon Scribe brings live transcription and AI-assisted notes into Obsidian. Strea
 - Tuon: Toggle live transcription
 - Tuon: Start live transcription
 - Tuon: Stop live transcription
+- Tuon: Toggle recorded audio transcription
+- Tuon: Start recorded audio transcription
+- Tuon: Stop recorded audio transcription
+- Tuon: Transcribe audio file (AssemblyAI)
 - Tuon: Summarize selection (OpenRouter)
 - Tuon: Prettify selection (OpenRouter)
 - Tuon: Insert scribe block
@@ -45,6 +50,7 @@ Obsidian does not currently allow plugins to add items to the mobile formatting 
 ## Privacy and external services
 
 - Live transcription streams microphone audio to AssemblyAI.
+- Recorded audio transcription uploads recorded audio files to AssemblyAI.
 - Summary and prettify send selected text or transcript text to OpenRouter.
 - API keys are stored locally in Obsidian plugin settings.
 

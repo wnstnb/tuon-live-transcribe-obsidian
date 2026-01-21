@@ -17,7 +17,9 @@ import {
 	parseVoiceSummaryBlock,
 	updateVoiceSummaryBlockInFile,
 	VoiceSummaryBlockData,
+	RecordingMode,
 } from "../voiceSummary/voiceSummaryBlock";
+import type { RecordedTranscriptionResult } from "../transcribe/recordedTranscribeService";
 import {
 	buildRecordingStartMarker,
 	buildRecordingStopMarker,
@@ -25,25 +27,41 @@ import {
 
 type NotesAction = "summary" | "prettify";
 
+type RecordingPhase = "recording" | "transcribing" | null;
+type RecordingState = {
+	running: boolean;
+	blockId: string | null;
+	mode: RecordingMode | null;
+	phase: RecordingPhase;
+};
+
 export interface VoiceSummaryBlockActions {
-	getRecordingState: () => { running: boolean; blockId: string | null };
-	onRecordingChange: (handler: (state: { running: boolean; blockId: string | null }) => void) => () => void;
+	getRecordingState: () => RecordingState;
+	onRecordingChange: (
+		handler: (state: RecordingState) => void
+	) => () => void;
 	onTranscriptPreview: (
-		handler: (preview: string, state: { running: boolean; blockId: string | null }) => void
+		handler: (preview: string, state: RecordingState) => void
 	) => () => void;
 	onAudioFrame: (
-		handler: (data: Uint8Array | null, state: { running: boolean; blockId: string | null }) => void
+		handler: (data: Uint8Array | null, state: RecordingState) => void
 	) => () => void;
 	getInteractionSettings: () => { autoScrollTranscript: boolean; autoSwitchToTranscript: boolean };
 	getTimestampSettings: () => { scribeBlockTimestamps: boolean };
 	startRecordingForBlock: (opts: {
 		blockId: string;
 		sourcePath: string;
+		mode: RecordingMode;
 		onFinalText: (text: string) => void;
 		onPartialText?: (text: string) => void;
 		onPreviewText?: (text: string) => void;
 	}) => Promise<boolean>;
-	stopRecording: () => void;
+	stopRecordingForBlock: (opts: {
+		blockId: string;
+		sourcePath: string;
+		mode: RecordingMode;
+		audioPath?: string;
+	}) => Promise<RecordedTranscriptionResult | null>;
 	summarizeTranscript: (transcript: string) => Promise<{ summary: string; model: string }>;
 	prettifyTranscript: (transcript: string) => Promise<{ pretty: string; model: string }>;
 }
@@ -89,6 +107,7 @@ export function renderVoiceSummaryBlock(opts: {
 	let notesAction: NotesAction = "summary";
 	let recordingStartedAt: Date | null = null;
 	let recordingWasActive = false;
+	let recordingModeAtStart: RecordingMode | null = null;
 	let clearConfirm = false;
 	let clearAnimating = false;
 	let copySuccess = false;
@@ -128,6 +147,9 @@ export function renderVoiceSummaryBlock(opts: {
 		text: "",
 	});
 	const actionsWrap = headerRow2.createDiv({ cls: "tuon-voice-block__actions" });
+	const modeButton = actionsWrap.createEl("button", { cls: "tuon-voice-mode-button" });
+	const modeButtonIcon = modeButton.createSpan({ cls: "tuon-voice-mode-button__icon" });
+	const modeButtonLabel = modeButton.createSpan({ cls: "tuon-voice-mode-button__label" });
 	const recordButton = actionsWrap.createEl("button", {
 		cls: "tuon-voice-record-button",
 	});
@@ -152,6 +174,11 @@ export function renderVoiceSummaryBlock(opts: {
 		cls: "tuon-voice-menu-button",
 	});
 	const menuIcon = menuButton.createSpan({ cls: "tuon-voice-menu-button__icon" });
+	const playerRow = container.createDiv({ cls: "tuon-voice-block__player-row" });
+	const playerAudio = playerRow.createEl("audio", { cls: "tuon-voice-block__player" });
+	playerAudio.controls = true;
+	playerAudio.preload = "metadata";
+	const playerHint = playerRow.createDiv({ cls: "tuon-voice-block__player-hint" });
 	const tabsRow = container.createDiv({ cls: "tuon-voice-block__tabs-row" });
 	const tabs = tabsRow.createDiv({ cls: "tuon-voice-block__tabs" });
 	const transcriptTab = tabs.createEl("button", { text: "Transcript" });
@@ -224,6 +251,96 @@ export function renderVoiceSummaryBlock(opts: {
 		titleDisplay.style.display = isEditingTitle ? "none" : "block";
 	}
 
+	function getRecordingMode(): RecordingMode {
+		return data.recordingMode === "file" ? "file" : "stream";
+	}
+
+	function getAudioPath(): string {
+		return (data.audioPath || "").trim();
+	}
+
+	function updateAudioPlayer() {
+		const mode = getRecordingMode();
+		if (mode !== "file") {
+			playerRow.style.display = "none";
+			playerAudio.pause();
+			playerAudio.src = "";
+			playerHint.textContent = "";
+			return;
+		}
+		playerRow.style.display = "flex";
+
+		const recordingState = getRecordingState();
+		const recording = isThisBlockRecording(recordingState);
+		const transcribing = isThisBlockTranscribing(recordingState);
+		if (recording || transcribing) {
+			playerAudio.pause();
+			playerAudio.src = "";
+			playerAudio.style.display = "none";
+			playerHint.textContent = transcribing ? "Transcribing audio…" : "Recording audio…";
+			return;
+		}
+
+		const path = getAudioPath();
+		if (!path) {
+			playerAudio.pause();
+			playerAudio.src = "";
+			playerAudio.style.display = "none";
+			playerHint.textContent = "No recording yet.";
+			return;
+		}
+
+		const file = opts.app.vault.getAbstractFileByPath(path);
+		if (!(file instanceof TFile)) {
+			playerAudio.pause();
+			playerAudio.src = "";
+			playerAudio.style.display = "none";
+			playerHint.textContent = "Recording file not found.";
+			return;
+		}
+
+		const resourcePath = opts.app.vault.getResourcePath(file);
+		if (playerAudio.src !== resourcePath) {
+			playerAudio.src = resourcePath;
+		}
+		playerAudio.style.display = "block";
+		playerHint.textContent = "";
+	}
+
+	function updateModeButton() {
+		const mode = getRecordingMode();
+		const isFile = mode === "file";
+		modeButtonLabel.textContent = isFile ? "File" : "Stream";
+		setIcon(modeButtonIcon, isFile ? "voicemail" : "audio-waveform");
+		modeButton.setAttr("aria-label", "Recording mode");
+		modeButton.setAttr("title", "Recording mode");
+	}
+
+	async function setRecordingMode(nextMode: RecordingMode) {
+		if (nextMode === getRecordingMode()) {
+			updateModeButton();
+			return;
+		}
+		const updated = await updateVoiceSummaryBlockInFile(
+			opts.app,
+			opts.sourcePath,
+			data.id,
+			(current) => ({
+				...current,
+				recordingMode: nextMode,
+				updatedAt: new Date().toISOString(),
+			})
+		);
+		if (updated) {
+			data = updated;
+		} else {
+			data.recordingMode = nextMode;
+		}
+		updateModeButton();
+		updateActionState();
+		updateAudioPlayer();
+	}
+
 	async function commitTitle(nextTitle: string) {
 		const normalized = nextTitle.trim() || "Scribe";
 		const updated = await updateVoiceSummaryBlockInFile(
@@ -280,8 +397,12 @@ export function renderVoiceSummaryBlock(opts: {
 		});
 	}
 
-	function isThisBlockRecording(state: { running: boolean; blockId: string | null }) {
-		return state.running && state.blockId === data.id;
+	function isThisBlockRecording(state: RecordingState) {
+		return state.phase === "recording" && state.blockId === data.id;
+	}
+
+	function isThisBlockTranscribing(state: RecordingState) {
+		return state.phase === "transcribing" && state.blockId === data.id;
 	}
 
 	function updateTabs() {
@@ -336,6 +457,15 @@ export function renderVoiceSummaryBlock(opts: {
 	}
 
 	function updateVisualizerPreview() {
+		const recordingState = getRecordingState();
+		if (
+			getRecordingMode() === "file" &&
+			recordingState.phase === "recording" &&
+			recordingState.blockId === data.id
+		) {
+			visualizerPreview.textContent = "";
+			return;
+		}
 		const source = livePreview.trim() || (data.transcript || "").trim();
 		visualizerPreview.textContent = source ? getLastWords(source, 5) : "";
 	}
@@ -343,10 +473,16 @@ export function renderVoiceSummaryBlock(opts: {
 	function updateTranscriptView() {
 		const recordingState = getRecordingState();
 		const recording = isThisBlockRecording(recordingState);
-		transcriptHint.textContent = recording ? "Transcript editing is locked while recording." : "";
-		transcriptHint.style.display = recording ? "block" : "none";
-		transcriptReadonly.style.display = recording ? "block" : "none";
-		transcriptTextarea.style.display = recording ? "none" : "block";
+		const transcribing = isThisBlockTranscribing(recordingState);
+		const locked = recording || transcribing;
+		transcriptHint.textContent = transcribing
+			? "Transcribing audio… transcript editing is locked."
+			: recording
+			? "Transcript editing is locked while recording."
+			: "";
+		transcriptHint.style.display = locked ? "block" : "none";
+		transcriptReadonly.style.display = locked ? "block" : "none";
+		transcriptTextarea.style.display = locked ? "none" : "block";
 		if (data.transcript?.trim()) {
 			renderMarkdown(transcriptReadonly, data.transcript);
 			const interaction = opts.actions.getInteractionSettings();
@@ -356,14 +492,15 @@ export function renderVoiceSummaryBlock(opts: {
 		} else {
 			transcriptReadonly.textContent = "No transcript yet.";
 		}
-		if (!isDirty && !recording) {
+		if (!isDirty && !locked) {
 			transcriptTextarea.value = data.transcript || "";
 			draftTranscript = data.transcript || "";
 		}
-		if (!recording) {
+		if (!locked) {
 			scheduleResizeTranscriptTextarea();
 		}
 		updateVisualizerPreview();
+		updateAudioPlayer();
 	}
 
 	function getActiveActionLabel(action: NotesAction) {
@@ -402,9 +539,13 @@ export function renderVoiceSummaryBlock(opts: {
 	function updateActionState() {
 		const recordingState = getRecordingState();
 		const recording = isThisBlockRecording(recordingState);
+		const transcribing = isThisBlockTranscribing(recordingState);
+		const isBusy = recording || transcribing;
 		const transcriptHasText = (data.transcript || "").trim().length > 0;
 		const isOtherRecording = recordingState.running && recordingState.blockId !== data.id;
-		clearButton.disabled = recording || isProcessing;
+		updateModeButton();
+		modeButton.disabled = recordingState.running;
+		clearButton.disabled = isBusy || isProcessing;
 		clearButton.setAttr("aria-label", clearConfirm ? "Confirm clear" : "Clear transcript");
 		clearButton.setAttr("title", clearConfirm ? "Confirm clear" : "Clear transcript");
 		clearButton.toggleClass("is-confirm", clearConfirm);
@@ -424,14 +565,24 @@ export function renderVoiceSummaryBlock(opts: {
 		copyButton.toggleClass("is-success", copySuccess);
 		setIcon(copyIcon, copySuccess ? "check" : "copy");
 
-		recordButton.setAttr("aria-label", recording ? "Stop recording" : "Start recording");
-		recordButton.setAttr("title", recording ? "Stop recording" : "Start recording");
+		const mode = getRecordingMode();
+		const hasAudio = !!getAudioPath();
+		const recordLabel = transcribing
+			? "Transcribing…"
+			: recording
+			? "Stop recording"
+			: mode === "file" && hasAudio
+			? "Extend recording"
+			: "Start recording";
+		recordButton.setAttr("aria-label", recordLabel);
+		recordButton.setAttr("title", recordLabel);
 		recordButton.textContent = "";
 		recordButton.appendChild(recordIcon);
 		setIcon(recordIcon, recording ? "square" : "mic");
 		recordButton.toggleClass("is-recording", recording);
-		recordButton.disabled = isOtherRecording;
-		summarizeButton.disabled = !transcriptHasText || recording || isProcessing;
+		recordButton.toggleClass("is-transcribing", transcribing);
+		recordButton.disabled = isOtherRecording || transcribing;
+		summarizeButton.disabled = !transcriptHasText || isBusy || isProcessing;
 		summarizeDropdownButton.disabled = summarizeButton.disabled;
 		if (isProcessing) {
 			summarizeLabel.textContent =
@@ -506,6 +657,7 @@ export function renderVoiceSummaryBlock(opts: {
 			updateSummaryView();
 			updatePrettyView();
 			updateActionState();
+			updateAudioPlayer();
 		}
 	}
 
@@ -517,6 +669,8 @@ export function renderVoiceSummaryBlock(opts: {
 			(current) => ({
 				...current,
 				transcript: "",
+				audioPath: "",
+				audioDurationMs: 0,
 				summary: "",
 				pretty: "",
 				updatedAt: new Date().toISOString(),
@@ -540,6 +694,7 @@ export function renderVoiceSummaryBlock(opts: {
 			updateSummaryView();
 			updatePrettyView();
 			updateActionState();
+			updateAudioPlayer();
 		}
 	}
 
@@ -639,6 +794,36 @@ export function renderVoiceSummaryBlock(opts: {
 		});
 	}
 
+	async function appendRecordedFileTranscript(result: RecordedTranscriptionResult | null) {
+		if (!result) return;
+		const transcriptText = (result.text || "").trim();
+		const updated = await updateVoiceSummaryBlockInFile(
+			opts.app,
+			opts.sourcePath,
+			data.id,
+			(current) => ({
+				...current,
+				audioPath: result.audioPath,
+				audioDurationMs:
+					typeof result.durationMs === "number" && Number.isFinite(result.durationMs)
+						? result.durationMs
+						: current.audioDurationMs ?? 0,
+				transcript: transcriptText,
+				updatedAt: new Date().toISOString(),
+			})
+		);
+		if (updated) {
+			data = updated;
+			isDirty = false;
+			draftTranscript = transcriptText;
+			updateTranscriptView();
+			updateSummaryView();
+			updatePrettyView();
+			updateActionState();
+			updateAudioPlayer();
+		}
+	}
+
 	clearButton.addEventListener("click", async () => {
 		if (clearButton.disabled) return;
 		if (!clearConfirm) {
@@ -703,6 +888,29 @@ export function renderVoiceSummaryBlock(opts: {
 		void commitTitle(titleInput.value);
 	});
 
+	modeButton.addEventListener("click", (event) => {
+		event.preventDefault();
+		if (modeButton.disabled) return;
+		const menu = new Menu();
+		menu.addItem((item) =>
+			item
+				.setTitle("File")
+				.setIcon("voicemail")
+				.onClick(() => {
+					void setRecordingMode("file");
+				})
+		);
+		menu.addItem((item) =>
+			item
+				.setTitle("Stream")
+				.setIcon("audio-waveform")
+				.onClick(() => {
+					void setRecordingMode("stream");
+				})
+		);
+		menu.showAtMouseEvent(event);
+	});
+
 	menuButton.addEventListener("click", (event) => {
 		event.preventDefault();
 		const menu = new Menu();
@@ -724,8 +932,21 @@ export function renderVoiceSummaryBlock(opts: {
 
 	recordButton.addEventListener("click", async () => {
 		const recordingState = getRecordingState();
+		const mode = getRecordingMode();
+		if (isThisBlockTranscribing(recordingState)) {
+			new Notice("Transcription is still running.");
+			return;
+		}
 		if (isThisBlockRecording(recordingState)) {
-			opts.actions.stopRecording();
+			const result = await opts.actions.stopRecordingForBlock({
+				blockId: data.id,
+				sourcePath: opts.sourcePath,
+				mode,
+				audioPath: mode === "file" ? getAudioPath() : undefined,
+			});
+			if (mode === "file") {
+				await appendRecordedFileTranscript(result);
+			}
 			return;
 		}
 		if (isDirty) {
@@ -734,6 +955,7 @@ export function renderVoiceSummaryBlock(opts: {
 		const ok = await opts.actions.startRecordingForBlock({
 			blockId: data.id,
 			sourcePath: opts.sourcePath,
+			mode,
 			onFinalText: (text) => void appendTranscript(text),
 		});
 		if (!ok) {
@@ -742,7 +964,8 @@ export function renderVoiceSummaryBlock(opts: {
 		}
 		recordingStartedAt = new Date();
 		recordingWasActive = true;
-		if (opts.actions.getTimestampSettings().scribeBlockTimestamps) {
+		recordingModeAtStart = mode;
+		if (mode === "stream" && opts.actions.getTimestampSettings().scribeBlockTimestamps) {
 			await appendTranscriptMarker(buildRecordingStartMarker(recordingStartedAt));
 		}
 	});
@@ -895,19 +1118,23 @@ export function renderVoiceSummaryBlock(opts: {
 		}
 		if (!recording && recordingWasActive) {
 			const stoppedAt = new Date();
-			if (opts.actions.getTimestampSettings().scribeBlockTimestamps) {
+			if (
+				recordingModeAtStart === "stream" &&
+				opts.actions.getTimestampSettings().scribeBlockTimestamps
+			) {
 				void appendTranscriptMarker(buildRecordingStopMarker(stoppedAt, recordingStartedAt));
 			}
 			recordingStartedAt = null;
 			recordingWasActive = false;
+			recordingModeAtStart = null;
 		}
-		visualizer.update(null, state.running && state.blockId === data.id);
+		visualizer.update(null, state.phase === "recording" && state.blockId === data.id);
 		updateTranscriptView();
 		updateActionState();
 	});
 
 	const unsubscribePreview = opts.actions.onTranscriptPreview((preview, state) => {
-		if (state.running && state.blockId === data.id) {
+		if (state.phase === "recording" && state.blockId === data.id) {
 			livePreview = preview || "";
 			updateVisualizerPreview();
 			return;
@@ -919,7 +1146,7 @@ export function renderVoiceSummaryBlock(opts: {
 	});
 
 	const unsubscribeAudio = opts.actions.onAudioFrame((frame, state) => {
-		const isActive = state.running && state.blockId === data.id;
+		const isActive = state.phase === "recording" && state.blockId === data.id;
 		if (!isActive || !frame) return;
 		visualizer.update(frame, true);
 	});
@@ -928,9 +1155,10 @@ export function renderVoiceSummaryBlock(opts: {
 	setIcon(summarizeDropdownIcon, "chevron-down");
 	setIcon(clearIcon, "eraser");
 	setIcon(copyIcon, "copy");
-	setIcon(menuIcon, "more-vertical");
+	setIcon(menuIcon, "menu");
 	setIcon(titleCancel, "x");
 	setIcon(titleSave, "check");
+	updateModeButton();
 
 	updateTabs();
 	updateTranscriptView();

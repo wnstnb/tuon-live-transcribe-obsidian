@@ -15,11 +15,16 @@ export interface VoicePrettifyMeta {
 	updatedAt?: string;
 }
 
+export type RecordingMode = "stream" | "file";
+
 export interface VoiceSummaryBlockData {
 	id: string;
 	title: string;
 	createdAt: string;
 	updatedAt: string;
+	recordingMode: RecordingMode;
+	audioPath?: string;
+	audioDurationMs?: number;
 	transcript: string;
 	summary: string;
 	summaryMeta?: VoiceSummaryMeta;
@@ -43,6 +48,9 @@ export function createVoiceSummaryBlockData(): VoiceSummaryBlockData {
 		title: "Scribe",
 		createdAt: now,
 		updatedAt: now,
+		recordingMode: "stream",
+		audioPath: "",
+		audioDurationMs: 0,
 		transcript: "",
 		summary: "",
 		summaryMeta: {
@@ -88,6 +96,9 @@ export function stringifyVoiceSummaryBlock(data: VoiceSummaryBlockData): string 
 			title: normalized.title,
 			createdAt: normalized.createdAt,
 			updatedAt: normalized.updatedAt,
+			recordingMode: normalized.recordingMode,
+			audioPath: normalized.audioPath ?? "",
+			audioDurationMs: normalized.audioDurationMs ?? 0,
 			transcript: normalized.transcript ?? "",
 			summary: normalized.summary ?? "",
 			summaryMeta: {
@@ -195,6 +206,9 @@ function normalizeVoiceSummaryData(raw: Record<string, unknown>): VoiceSummaryBl
 		title: coerceString(raw.title) || "Scribe",
 		createdAt: coerceString(raw.createdAt) || now,
 		updatedAt: coerceString(raw.updatedAt) || now,
+		recordingMode: normalizeRecordingMode(raw.recordingMode),
+		audioPath: coerceString(raw.audioPath),
+		audioDurationMs: coerceNumber(raw.audioDurationMs),
 		transcript: coerceString(raw.transcript),
 		summary: coerceString(raw.summary),
 		summaryMeta: {
@@ -215,6 +229,20 @@ function coerceString(value: unknown): string {
 	if (typeof value === "string") return value;
 	if (typeof value === "number" || typeof value === "boolean") return String(value);
 	return "";
+}
+
+function coerceNumber(value: unknown): number {
+	if (typeof value === "number" && Number.isFinite(value)) return value;
+	if (typeof value === "string") {
+		const parsed = Number(value);
+		return Number.isFinite(parsed) ? parsed : 0;
+	}
+	return 0;
+}
+
+function normalizeRecordingMode(value: unknown): RecordingMode {
+	const mode = typeof value === "string" ? value.trim().toLowerCase() : "";
+	return mode === "file" ? "file" : "stream";
 }
 
 function createVoiceSummaryId(): string {
