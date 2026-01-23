@@ -24,9 +24,13 @@ import { EditorView } from "@codemirror/view";
 import {
 	buildVoiceSummaryFence,
 	createVoiceSummaryBlockData,
+	migrateVoiceSummaryBlocksInFile,
+	toVoiceSummaryBlockContent,
+	toVoiceSummaryBlockMeta,
 	VOICE_SUMMARY_BLOCK_TYPE,
 	RecordingMode,
 } from "./voiceSummary/voiceSummaryBlock";
+import { buildVoiceSummaryStorageBlock } from "./voiceSummary/voiceSummaryStorage";
 import { renderVoiceSummaryBlock } from "./ui/voiceSummaryBlockRenderer";
 import {
 	showTestResultToast,
@@ -155,7 +159,7 @@ export default class TuonScribePlugin extends Plugin {
 		this.registerEvent(
 			this.app.workspace.on("file-open", (file) => {
 				window.setTimeout(() => {
-					this.refreshActiveMarkdownViewIfScribeBlock(file);
+					void this.migrateAndRefreshScribeBlocks(file);
 				}, 0);
 			})
 		);
@@ -436,22 +440,54 @@ export default class TuonScribePlugin extends Plugin {
 		}
 	}
 
-	private refreshActiveMarkdownViewIfScribeBlock(file: TFile | null) {
+	private async migrateAndRefreshScribeBlocks(file: TFile | null) {
+		if (!file) return;
+		if (file.extension !== "md") return;
+		try {
+			await migrateVoiceSummaryBlocksInFile(this.app, file);
+		} catch (err) {
+			console.warn("Failed to migrate scribe blocks:", err);
+		} finally {
+			void this.refreshActiveMarkdownViewIfScribeBlock(file);
+		}
+	}
+
+	private async refreshActiveMarkdownViewIfScribeBlock(file: TFile | null) {
 		if (!file) return;
 		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-		if (!view) return;
+		if (!view || view.file?.path !== file.path) return;
+		const hasScribeBlock = await this.fileHasScribeBlock(file);
+		if (!hasScribeBlock) return;
+		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!activeView || activeView.file?.path !== file.path) return;
+		const preview = (activeView as { previewMode?: { rerender?: (force?: boolean) => void } })
+			.previewMode;
+		preview?.rerender?.(true);
+		const currentMode = (
+			activeView as { currentMode?: { rerender?: (force?: boolean) => void } }
+		).currentMode;
+		if (currentMode && currentMode !== preview) {
+			currentMode.rerender?.(true);
+		}
+	}
+
+	private async fileHasScribeBlock(file: TFile): Promise<boolean> {
 		const cache = this.app.metadataCache.getFileCache(file) as
 			| { sections?: Array<{ type?: string; id?: string }> }
 			| null
 			| undefined;
-		const hasScribeBlock =
+		const hasCacheBlock =
 			cache?.sections?.some(
 				(section) => section.type === "code" && section.id === VOICE_SUMMARY_BLOCK_TYPE
 			) ?? false;
-		if (!hasScribeBlock) return;
-		const preview = (view as { previewMode?: { rerender?: (force?: boolean) => void } })
-			.previewMode;
-		preview?.rerender?.(true);
+		if (hasCacheBlock) return true;
+		try {
+			const content = await this.app.vault.cachedRead(file);
+			return content.includes(`\`\`\`${VOICE_SUMMARY_BLOCK_TYPE}`);
+		} catch (err) {
+			console.warn("Failed to read note for scribe block detection:", err);
+			return false;
+		}
 	}
 
 	private getActiveEditor(): Editor | null {
@@ -965,9 +1001,10 @@ export default class TuonScribePlugin extends Plugin {
 	private insertVoiceSummaryBlock(editor: Editor) {
 		const data = createVoiceSummaryBlockData();
 		data.recordingMode = this.settings.recordingModeDefault ?? "stream";
-		const fence = buildVoiceSummaryFence(data);
+		const fence = buildVoiceSummaryFence(toVoiceSummaryBlockMeta(data));
+		const storage = buildVoiceSummaryStorageBlock(data.id, toVoiceSummaryBlockContent(data));
 		const cursor = editor.getCursor();
-		editor.replaceRange(`${fence}\n\n`, cursor);
+		editor.replaceRange(`${fence}\n\n${storage}\n\n`, cursor);
 	}
 
 	private getRecordingState(): RecordingState {

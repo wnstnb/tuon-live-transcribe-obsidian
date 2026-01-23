@@ -13,12 +13,14 @@ import {
 	getTranscriptHash,
 	isPrettyStale,
 	isSummaryStale,
+	createVoiceSummaryBlockContent,
 	findVoiceSummaryBlockById,
 	parseVoiceSummaryBlock,
 	updateVoiceSummaryBlockInFile,
 	VoiceSummaryBlockData,
 	RecordingMode,
 } from "../voiceSummary/voiceSummaryBlock";
+import { findVoiceSummaryStorageBlock } from "../voiceSummary/voiceSummaryStorage";
 import type { RecordedTranscriptionResult } from "../transcribe/recordedTranscribeService";
 import {
 	buildRecordingStartMarker,
@@ -77,7 +79,7 @@ export function renderVoiceSummaryBlock(opts: {
 	const parsed = parseVoiceSummaryBlock(opts.source);
 	opts.el.empty();
 
-	if (!parsed.data) {
+	if (!parsed.meta) {
 		const error = opts.el.createDiv({ cls: "tuon-voice-block tuon-voice-error" });
 		error.createEl("strong", { text: "Scribe block error" });
 		error.createDiv({ text: parsed.error || "Unable to parse scribe block." });
@@ -86,7 +88,13 @@ export function renderVoiceSummaryBlock(opts: {
 		return;
 	}
 
-	let data = parsed.data;
+	let data: VoiceSummaryBlockData = {
+		...parsed.meta,
+		...createVoiceSummaryBlockContent(),
+	};
+	if (parsed.legacyContent) {
+		data = { ...data, ...parsed.legacyContent };
+	}
 	const initialRecordingState = opts.actions.getRecordingState();
 	const initialInteraction = opts.actions.getInteractionSettings();
 	const shouldForceTranscript =
@@ -100,6 +108,7 @@ export function renderVoiceSummaryBlock(opts: {
 		: data.pretty
 		? "pretty"
 		: "transcript";
+	let hasUserSelectedTab = false;
 	let draftTranscript = data.transcript;
 	let livePreview = "";
 	let isDirty = false;
@@ -115,6 +124,8 @@ export function renderVoiceSummaryBlock(opts: {
 	let isEditingTitle = false;
 	let titleBlurMode: "save" | "cancel" | null = null;
 	let transcriptWrite = Promise.resolve();
+	let isDisposed = false;
+	let pendingTranscriptFlush = false;
 
 	const container = opts.el.createDiv({ cls: "tuon-voice-block" });
 	const header = container.createDiv({ cls: "tuon-voice-block__header" });
@@ -450,6 +461,45 @@ export function renderVoiceSummaryBlock(opts: {
 		prettyMeta.textContent = meta;
 	}
 
+	async function hydrateFromStorage() {
+		const file = opts.app.vault.getAbstractFileByPath(opts.sourcePath);
+		if (!(file instanceof TFile)) return;
+		try {
+			const content = await opts.app.vault.cachedRead(file);
+			if (isDisposed) return;
+			const storage = findVoiceSummaryStorageBlock(content, data.id);
+			if (!storage) {
+				if (parsed.legacyContent) {
+					void updateVoiceSummaryBlockInFile(
+						opts.app,
+						opts.sourcePath,
+						data.id,
+						(current) => ({
+							...current,
+							...parsed.legacyContent,
+						})
+					);
+				}
+				return;
+			}
+			data = { ...data, ...storage.content };
+			if (!hasUserSelectedTab && !shouldForceTranscript) {
+				activeTab = data.summary
+					? "summary"
+					: data.pretty
+					? "pretty"
+					: "transcript";
+			}
+			updateTabs();
+			updateTranscriptView();
+			updateSummaryView();
+			updatePrettyView();
+			updateActionState();
+		} catch (err) {
+			console.warn("Failed to load scribe storage:", err);
+		}
+	}
+
 	function getLastWords(text: string, count = 4) {
 		const words = text.trim().split(/\s+/).filter(Boolean);
 		if (words.length === 0) return "";
@@ -640,28 +690,64 @@ export function renderVoiceSummaryBlock(opts: {
 	}
 
 	async function applyTranscriptUpdate(nextTranscript: string) {
-		const updated = await updateVoiceSummaryBlockInFile(
-			opts.app,
-			opts.sourcePath,
-			data.id,
-			(current) => ({
-				...current,
-				transcript: nextTranscript,
-				updatedAt: new Date().toISOString(),
-			})
-		);
-		if (updated) {
-			data = updated;
-			isDirty = false;
-			updateTranscriptView();
+		pendingTranscriptFlush = false;
+		await persistTranscriptUpdate(nextTranscript, { refreshSummary: true });
+	}
+
+	async function flushTranscriptIfNeeded() {
+		if (!pendingTranscriptFlush) return;
+		pendingTranscriptFlush = false;
+		await persistTranscriptUpdate(data.transcript || "", { refreshSummary: true });
+	}
+
+	async function persistTranscriptUpdate(
+		nextTranscript: string,
+		options?: { refreshSummary?: boolean }
+	) {
+		await enqueueTranscriptWrite(async () => {
+			const updated = await updateVoiceSummaryBlockInFile(
+				opts.app,
+				opts.sourcePath,
+				data.id,
+				(current) => ({
+					...current,
+					transcript: nextTranscript,
+					updatedAt: new Date().toISOString(),
+				})
+			);
+			if (updated) {
+				data = updated;
+				isDirty = false;
+				draftTranscript = nextTranscript;
+				updateTranscriptView();
+				if (options?.refreshSummary ?? true) {
+					updateSummaryView();
+					updatePrettyView();
+				}
+				updateActionState();
+				updateAudioPlayer();
+			}
+		});
+	}
+
+	function updateTranscriptInMemory(
+		nextTranscript: string,
+		options?: { refreshSummary?: boolean }
+	) {
+		data.transcript = nextTranscript;
+		draftTranscript = nextTranscript;
+		isDirty = false;
+		updateTranscriptView();
+		if (options?.refreshSummary ?? false) {
 			updateSummaryView();
 			updatePrettyView();
-			updateActionState();
-			updateAudioPlayer();
 		}
+		updateActionState();
+		updateAudioPlayer();
 	}
 
 	async function clearTranscriptAndOutputs() {
+		pendingTranscriptFlush = false;
 		const updated = await updateVoiceSummaryBlockInFile(
 			opts.app,
 			opts.sourcePath,
@@ -727,7 +813,15 @@ export function renderVoiceSummaryBlock(opts: {
 		const content = await opts.app.vault.read(file);
 		const match = findVoiceSummaryBlockById(content, data.id);
 		if (!match) return;
-		const next = content.slice(0, match.start) + content.slice(match.end);
+		const storageMatch = findVoiceSummaryStorageBlock(content, data.id);
+		const ranges = [
+			{ start: match.start, end: match.end },
+			...(storageMatch ? [{ start: storageMatch.start, end: storageMatch.end }] : []),
+		].sort((a, b) => b.start - a.start);
+		let next = content;
+		for (const range of ranges) {
+			next = next.slice(0, range.start) + next.slice(range.end);
+		}
 		await opts.app.vault.modify(file, next);
 	}
 
@@ -741,61 +835,26 @@ export function renderVoiceSummaryBlock(opts: {
 	async function appendTranscriptMarker(text: string) {
 		const trimmed = text.trim();
 		if (!trimmed) return;
-		await enqueueTranscriptWrite(async () => {
-			const updated = await updateVoiceSummaryBlockInFile(
-				opts.app,
-				opts.sourcePath,
-				data.id,
-				(current) => {
-					const base = current.transcript || "";
-					const prefix = base.trim().length ? "\n\n" : "";
-					return {
-						...current,
-						transcript: `${base}${prefix}${trimmed}\n\n`,
-						updatedAt: new Date().toISOString(),
-					};
-				}
-			);
-			if (updated) {
-				data = updated;
-				updateTranscriptView();
-				updateSummaryView();
-				updatePrettyView();
-				updateActionState();
-			}
-		});
+		const base = data.transcript || "";
+		const prefix = base.trim().length ? "\n\n" : "";
+		const next = `${base}${prefix}${trimmed}\n\n`;
+		pendingTranscriptFlush = true;
+		updateTranscriptInMemory(next, { refreshSummary: false });
 	}
 
 	async function appendTranscript(text: string) {
 		const trimmed = text.trim();
 		if (!trimmed) return;
-		await enqueueTranscriptWrite(async () => {
-			const updated = await updateVoiceSummaryBlockInFile(
-				opts.app,
-				opts.sourcePath,
-				data.id,
-				(current) => {
-					const base = current.transcript || "";
-					const spacer = base && !/\s$/.test(base) ? " " : "";
-					return {
-						...current,
-						transcript: `${base}${spacer}${trimmed}`,
-						updatedAt: new Date().toISOString(),
-					};
-				}
-			);
-			if (updated) {
-				data = updated;
-				updateTranscriptView();
-				updateSummaryView();
-				updatePrettyView();
-				updateActionState();
-			}
-		});
+		const base = data.transcript || "";
+		const spacer = base && !/\s$/.test(base) ? " " : "";
+		const next = `${base}${spacer}${trimmed}`;
+		pendingTranscriptFlush = true;
+		updateTranscriptInMemory(next, { refreshSummary: false });
 	}
 
 	async function appendRecordedFileTranscript(result: RecordedTranscriptionResult | null) {
 		if (!result) return;
+		pendingTranscriptFlush = false;
 		const transcriptText = (result.text || "").trim();
 		const updated = await updateVoiceSummaryBlockInFile(
 			opts.app,
@@ -971,15 +1030,18 @@ export function renderVoiceSummaryBlock(opts: {
 	});
 
 	transcriptTab.addEventListener("click", () => {
+		hasUserSelectedTab = true;
 		activeTab = "transcript";
 		updateTabs();
 		scheduleResizeTranscriptTextarea();
 	});
 	summaryTab.addEventListener("click", () => {
+		hasUserSelectedTab = true;
 		activeTab = "summary";
 		updateTabs();
 	});
 	prettyTab.addEventListener("click", () => {
+		hasUserSelectedTab = true;
 		activeTab = "pretty";
 		updateTabs();
 	});
@@ -1005,6 +1067,9 @@ export function renderVoiceSummaryBlock(opts: {
 		}
 		if (isDirty) {
 			await applyTranscriptUpdate(draftTranscript);
+		}
+		if (pendingTranscriptFlush) {
+			await flushTranscriptIfNeeded();
 		}
 		isProcessing = true;
 		updateActionState();
@@ -1127,6 +1192,7 @@ export function renderVoiceSummaryBlock(opts: {
 			recordingStartedAt = null;
 			recordingWasActive = false;
 			recordingModeAtStart = null;
+			void flushTranscriptIfNeeded();
 		}
 		visualizer.update(null, state.phase === "recording" && state.blockId === data.id);
 		updateTranscriptView();
@@ -1166,10 +1232,12 @@ export function renderVoiceSummaryBlock(opts: {
 	updatePrettyView();
 	updateActionState();
 	updateTitleView();
+	void hydrateFromStorage();
 	const initialState = getRecordingState();
 	visualizer.update(null, initialState.running && initialState.blockId === data.id);
 
 	return () => {
+		isDisposed = true;
 		unsubscribe?.();
 		unsubscribePreview?.();
 		unsubscribeAudio?.();

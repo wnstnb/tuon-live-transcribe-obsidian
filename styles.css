@@ -2,6 +2,10 @@
 Voice summary block styles.
 */
 
+.tuon-scribe-storage {
+	display: none !important;
+}
+
 .tuon-voice-block {
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 12px;
